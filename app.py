@@ -4,12 +4,23 @@ from datetime import date
 import streamlit as st
 
 from scheduler import (
-    CALENDAR_HEADERS,
     START_DATE,
+    BLOCK_LENGTH,
+    SUBJECTS,
+    ERROR_TYPES,
+    REPAIR_STATUSES,
+    PREREQUISITE_RULES,
+    PERSISTENT_GAP_RULE,
+    PURPLE_REVIEW_INFO,
+    CALENDAR_HEADERS,
     format_vietnamese_date,
-    generate_schedule,
     get_block_number,
+    generate_schedule,
 )
+
+# ============================================================
+# PAGE CONFIG
+# ============================================================
 
 st.set_page_config(
     page_title="Lịch học của L",
@@ -18,32 +29,20 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-st.markdown(
-    """
-    <style>
-    .block-container { max-width: 1500px; padding-top: 1.2rem; padding-bottom: 3rem; }
-    .calendar-header { text-align: center; font-weight: 700; padding: 0.55rem 0.15rem; border-radius: 0.5rem; background: rgba(128, 128, 128, 0.14); margin-bottom: 0.25rem; }
-    .today-card { padding: 1rem; border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 0.8rem; margin-bottom: 1rem; }
-    .detail-card { padding: 1rem; border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 0.8rem; margin: 0.7rem 0; }
-    div[data-testid="stButton"] button { min-height: 3rem; white-space: normal; }
-    @media (max-width: 900px) { .block-container { padding-left: 0.6rem; padding-right: 0.6rem; } .calendar-header { font-size: 0.75rem; } div[data-testid="stButton"] button { font-size: 0.78rem; padding-left: 0.2rem; padding-right: 0.2rem; } }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-st.title("📚 Lịch học của L")
+# ============================================================
+# SESSION STATE
+# ============================================================
 
 today = date.today()
 
 if "view_year" not in st.session_state:
-    st.session_state.view_year = today.year
+    st.session_state.view_year = START_DATE.year
 
 if "view_month" not in st.session_state:
-    st.session_state.view_month = today.month
+    st.session_state.view_month = START_DATE.month
 
 if "selected_date" not in st.session_state:
-    st.session_state.selected_date = today if today >= START_DATE else START_DATE
+    st.session_state.selected_date = START_DATE
 
 
 def previous_month():
@@ -71,33 +70,126 @@ def go_to_today():
 def select_date(target_date):
     st.session_state.selected_date = target_date
 
+# ============================================================
+# CSS
+# ============================================================
 
-with st.container():
-    st.subheader("Hôm nay")
-    st.markdown(f"**{format_vietnamese_date(today)}**")
+st.markdown(
+    """
+    <style>
+    .block-container {
+        max-width: 1500px;
+        padding-top: 1rem;
+        padding-bottom: 3rem;
+    }
 
-    today_schedule = generate_schedule(today)
-    today_events = today_schedule.get(today, [])
+    .calendar-header {
+        text-align: center;
+        font-weight: 700;
+        padding: 0.55rem 0.15rem;
+        border-radius: 0.5rem;
+        background: rgba(128, 128, 128, 0.14);
+        margin-bottom: 0.25rem;
+    }
 
-    if today < START_DATE:
-        st.info(f"Chương trình học chưa bắt đầu. Ngày bắt đầu là {START_DATE.strftime('%d/%m/%Y')}.")
-    elif not today_events:
-        st.info("Hôm nay không có nhiệm vụ học tập.")
-    else:
-        for event in today_events:
-            st.markdown(f"{event['emoji']} **{event['subject']}** — {event['stage']} · {event['milestone']}")
+    div[data-testid="stButton"] button {
+        min-height: 3.4rem;
+        white-space: pre-line;
+        line-height: 1.25;
+    }
+
+    @media (max-width: 900px) {
+        .block-container {
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+
+        .calendar-header {
+            font-size: 0.72rem;
+        }
+
+        div[data-testid="stButton"] button {
+            font-size: 0.76rem;
+            padding-left: 0.15rem;
+            padding-right: 0.15rem;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ============================================================
+# TITLE
+# ============================================================
+
+st.title("📚 Lịch học của L")
+
+st.caption(
+    "Học theo block cố định · Chẩn đoán chính xác từng lỗ hổng · "
+    "Chỉ sửa đúng phần còn yếu · Không reset toàn bộ chương vì một lỗi nhỏ"
+)
+
+# ============================================================
+# TODAY
+# ============================================================
+
+st.subheader("📌 Hôm nay")
+
+today_schedule = generate_schedule(max(today, START_DATE))
+today_events = today_schedule.get(today, [])
+
+st.markdown(f"**{format_vietnamese_date(today)}**")
+
+if today < START_DATE:
+    st.info(
+        "Chương trình học chưa bắt đầu. "
+        f"Ngày bắt đầu là {START_DATE.strftime('%d/%m/%Y')}."
+    )
+elif not today_events:
+    st.info("Hôm nay không có nhiệm vụ học tập.")
+else:
+    for event in today_events:
+        st.markdown(
+            f"{event['emoji']} **{event['subject']}** — "
+            f"{event['stage']} · {event['milestone']}"
+        )
+
+# ============================================================
+# NAVIGATION
+# ============================================================
 
 st.divider()
 
-nav_left, nav_center, nav_right = st.columns([1, 1, 1])
+nav_left, nav_center, nav_right = st.columns(3)
+
 with nav_left:
-    st.button("◀ Tháng trước", on_click=previous_month, use_container_width=True)
+    st.button(
+        "◀ Tháng trước",
+        on_click=previous_month,
+        use_container_width=True,
+    )
+
 with nav_center:
-    st.button("Hôm nay", on_click=go_to_today, use_container_width=True)
+    st.button(
+        "Hôm nay",
+        on_click=go_to_today,
+        use_container_width=True,
+    )
+
 with nav_right:
-    st.button("Tháng sau ▶", on_click=next_month, use_container_width=True)
+    st.button(
+        "Tháng sau ▶",
+        on_click=next_month,
+        use_container_width=True,
+    )
+
+# ============================================================
+# DIRECT MONTH / YEAR SELECTOR
+# ============================================================
 
 selector_left, selector_right = st.columns(2)
+
 with selector_left:
     selected_month = st.selectbox(
         "Chọn tháng",
@@ -105,46 +197,93 @@ with selector_left:
         index=st.session_state.view_month - 1,
         format_func=lambda value: f"Tháng {value}",
     )
+
 with selector_right:
     current_view_year = st.session_state.view_year
-    year_options = list(range(min(2026, current_view_year - 5), max(today.year + 20, current_view_year + 5) + 1))
-    selected_year = st.selectbox("Chọn năm", options=year_options, index=year_options.index(current_view_year))
 
-if selected_month != st.session_state.view_month or selected_year != st.session_state.view_year:
+    year_options = list(
+        range(
+            min(START_DATE.year, current_view_year - 5),
+            max(today.year + 20, current_view_year + 5) + 1,
+        )
+    )
+
+    selected_year = st.selectbox(
+        "Chọn năm",
+        options=year_options,
+        index=year_options.index(current_view_year),
+    )
+
+if (
+    selected_month != st.session_state.view_month
+    or selected_year != st.session_state.view_year
+):
     st.session_state.view_month = selected_month
     st.session_state.view_year = selected_year
     st.rerun()
 
+# ============================================================
+# CURRENT MONTH
+# ============================================================
+
 year = st.session_state.view_year
 month = st.session_state.view_month
+
 last_day = calendar.monthrange(year, month)[1]
 month_end = date(year, month, last_day)
-schedule = generate_schedule(month_end)
 
-st.markdown(f"<h2 style='text-align:center;'>Tháng {month}/{year}</h2>", unsafe_allow_html=True)
+schedule = generate_schedule(max(month_end, today, START_DATE))
+
+st.markdown(
+    f"<h2 style='text-align:center;'>Tháng {month}/{year}</h2>",
+    unsafe_allow_html=True,
+)
+
+# ============================================================
+# CALENDAR HEADER
+# ============================================================
 
 header_columns = st.columns(7)
+
 for index, header in enumerate(CALENDAR_HEADERS):
     with header_columns[index]:
-        st.markdown(f"<div class='calendar-header'>{header}</div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='calendar-header'>{header}</div>",
+            unsafe_allow_html=True,
+        )
+
+# ============================================================
+# CALENDAR GRID
+# ============================================================
 
 cal = calendar.Calendar(firstweekday=0)
 weeks = cal.monthdatescalendar(year, month)
+
 for week in weeks:
     columns = st.columns(7)
+
     for index, current_date in enumerate(week):
         with columns[index]:
+
             if current_date.month != month:
                 st.markdown("&nbsp;", unsafe_allow_html=True)
                 continue
 
             events = schedule.get(current_date, [])
-            labels = [f"{event['emoji']} {event['subject']}" for event in events]
+
+            labels = [
+                f"{event['emoji']} {event['subject']}"
+                for event in events
+            ]
+
             button_text = str(current_date.day)
+
             if labels:
                 button_text += "\n" + "\n".join(labels)
+
             if current_date == today:
                 button_text = "● " + button_text
+
             if current_date == st.session_state.selected_date:
                 button_text = "✓ " + button_text
 
@@ -156,58 +295,206 @@ for week in weeks:
                 use_container_width=True,
             )
 
-st.divider()
-selected_date = st.session_state.selected_date
-selected_events = generate_schedule(selected_date).get(selected_date, [])
+# ============================================================
+# SELECTED DATE DETAILS
+# ============================================================
 
-st.subheader("Chi tiết ngày đã chọn")
+st.divider()
+
+selected_date = st.session_state.selected_date
+detail_schedule = generate_schedule(max(selected_date, START_DATE))
+selected_events = detail_schedule.get(selected_date, [])
+
+st.subheader("📋 Chi tiết ngày đã chọn")
 st.markdown(f"### {format_vietnamese_date(selected_date)}")
+
 block_number = get_block_number(selected_date)
+
 if block_number is not None:
-    st.caption(f"Block {block_number} · {len(selected_events)} nhiệm vụ")
+    st.caption(
+        f"Block {block_number} · {len(selected_events)} nhiệm vụ"
+    )
 
 if selected_date < START_DATE:
-    st.info("Ngày này nằm trước thời điểm bắt đầu chương trình học.")
+    st.info(
+        "Ngày này nằm trước thời điểm bắt đầu chương trình học."
+    )
+
 elif not selected_events:
-    st.info("Không có nhiệm vụ học tập trong ngày này.")
+    st.info(
+        "Không có nhiệm vụ học tập trong ngày này."
+    )
+
 else:
     for event in selected_events:
         with st.container(border=True):
-            st.markdown(f"### {event['emoji']} {event['full_subject'].upper()} — {event['stage'].upper()}")
+
+            st.markdown(
+                f"### {event['emoji']} "
+                f"{event['full_subject'].upper()} — "
+                f"{event['stage'].upper()}"
+            )
+
             st.markdown(f"**Mốc:** {event['milestone']}")
+
             st.markdown("**Cần làm:**")
+
             for task in event["tasks"]:
                 st.markdown(f"- {task}")
-            st.markdown(f"**Hình thức kiểm tra:** {event['check_method']}")
-            st.markdown(f"**Mục tiêu:** {event['goal']}")
+
+            st.markdown(
+                f"**Hình thức kiểm tra:** "
+                f"{event['check_method']}"
+            )
+
+            st.markdown(
+                f"**Mục tiêu:** {event['goal']}"
+            )
+
+            notes = event.get("notes", [])
+
+            if notes:
+                st.markdown("**Lưu ý:**")
+                for note in notes:
+                    st.markdown(f"- {note}")
+
+            if event["type"] == "test":
+                with st.expander(
+                    "Xem cách phân loại lỗi sau kiểm tra"
+                ):
+                    for error in ERROR_TYPES:
+                        st.markdown(
+                            f"**{error['code']}. {error['name']}**"
+                        )
+                        st.markdown(
+                            f"- Biểu hiện: {error['symptom']}"
+                        )
+                        st.markdown(
+                            f"- Xử lý: {error['action']}"
+                        )
+
+            if event["type"] == "repair":
+                priority_order = event.get("priority_order", [])
+
+                if priority_order:
+                    st.markdown("**Thứ tự ưu tiên xử lý:**")
+                    for number, item in enumerate(
+                        priority_order,
+                        start=1,
+                    ):
+                        st.markdown(f"{number}. {item}")
+
+                st.markdown("**Trạng thái sau khi xử lý:**")
+
+                for status in REPAIR_STATUSES:
+                    st.markdown(
+                        f"{status['emoji']} "
+                        f"**{status['name']}** — "
+                        f"{status['meaning']} "
+                        f"**Xử lý tiếp:** {status['next_action']}"
+                    )
+
+# ============================================================
+# LEARNING RULES
+# ============================================================
 
 st.divider()
-with st.expander("📖 Xem chú thích các màu"):
+
+with st.expander("🧠 Quy tắc xử lý kiến thức tiên quyết"):
+
+    st.markdown(
+        f"**Không liên quan trực tiếp đến block tiếp theo:** "
+        f"{PREREQUISITE_RULES['not_required_for_next_block']}"
+    )
+
+    st.markdown(
+        f"**Là điều kiện tiên quyết bắt buộc:** "
+        f"{PREREQUISITE_RULES['required_for_next_block']}"
+    )
+
+    st.markdown(
+        f"**Lỗ hổng nghiêm trọng:** "
+        f"{PREREQUISITE_RULES['severe_gap']}"
+    )
+
+with st.expander("🔁 Quy tắc lỗ hổng dai dẳng"):
+    st.markdown(PERSISTENT_GAP_RULE)
+
+# ============================================================
+# LEGEND
+# ============================================================
+
+with st.expander("📖 Chú thích các màu"):
+
     st.markdown(
         """
-        🔴 **Ngày đỏ — Ngày 0:** Kiểm tra bài cũ và dạy kiến thức mới.
+🔴 **Ngày đỏ — Ngày 0:**  
+Kiểm tra bài cũ hoặc nợ kiến thức cần thiết và dạy kiến thức mới.
 
-        🟠 **Ngày cam — Ngày 1:** Chép lại kiến thức và gửi ảnh kiểm tra.
+🟠 **Ngày cam — Ngày 1:**  
+Tái hiện kiến thức lần đầu, chép lại và kiểm tra qua ảnh.
 
-        🟡 **Ngày vàng — Ngày 3:** Đọc lại, làm bài tập, tự giải thích và quay video.
+🟡 **Ngày vàng — Ngày 3:**  
+Đọc lại, làm bài tập, tự giải thích và kiểm tra qua video.
 
-        🟢 **Ngày xanh lá — Ngày 7:** Ôn tập, làm bài và chữa trực tiếp online.
+🟢 **Ngày xanh lá — Ngày 7:**  
+Củng cố, làm bài và chữa trực tiếp online. Đây chưa phải mốc quyết định đạt hay chưa đạt.
 
-        🔵 **Ngày xanh dương:** Kiểm tra đánh giá cuối block.
+🔵 **Ngày xanh dương:**  
+Kiểm tra chẩn đoán cuối block theo từng đơn vị kiến thức. Không dùng điểm tổng để tự động quyết định pass/fail toàn block hoặc học lại toàn bộ chương.
 
-        ⚫ **Ngày đen:** Vá đúng những đơn vị kiến thức chưa đạt.
+⚫ **Ngày đen:**  
+Vá đúng những đơn vị kiến thức cần xử lý. Không học lại toàn bộ chương nếu không cần thiết.
+
+🟣 **Ngày tím:**  
+Tổng ôn định kỳ 2 tháng. Chưa tự động chèn vào calendar vì chưa có ngày bắt đầu chu kỳ cụ thể.
         """
     )
 
+# ============================================================
+# PURPLE REVIEW
+# ============================================================
+
+with st.expander("🟣 Quy tắc ngày tím — Tổng ôn định kỳ"):
+
+    st.markdown(
+        f"**Mốc:** {PURPLE_REVIEW_INFO['milestone']}"
+    )
+
+    st.markdown("**Cần làm:**")
+
+    for task in PURPLE_REVIEW_INFO["tasks"]:
+        st.markdown(f"- {task}")
+
+    st.markdown("**Ưu tiên:**")
+
+    for item in PURPLE_REVIEW_INFO["priority"]:
+        st.markdown(f"- {item}")
+
+    st.markdown(
+        f"**Lưu ý:** {PURPLE_REVIEW_INFO['note']}"
+    )
+
+# ============================================================
+# SYSTEM INFO
+# ============================================================
+
 with st.expander("⚙️ Thông tin hệ thống"):
+
+    subject_order = " → ".join(
+        subject["name"] for subject in SUBJECTS
+    )
+
     st.markdown(
         f"""
-        **Ngày bắt đầu:** {START_DATE.strftime('%d/%m/%Y')}
+**Ngày bắt đầu:** {START_DATE.strftime('%d/%m/%Y')}
 
-        **Độ dài mỗi block:** 14 ngày
+**Độ dài mỗi block:** {BLOCK_LENGTH} ngày
 
-        **Thứ tự môn:** Tiếng Anh → Toán → Vật lý
+**Thứ tự môn:** {subject_order}
 
-        **Chu kỳ:** Ngày 0 → Ngày 1 → Ngày 3 → Ngày 7 → Kiểm tra cuối block → Vá lỗi
+**Chu kỳ:** Ngày 0 → Ngày 1 → Ngày 3 → Ngày 7 → Kiểm tra chẩn đoán cuối block → Vá đúng đơn vị kiến thức cần xử lý
+
+**Nguyên tắc trung tâm:** Không reset toàn bộ chương vì một lỗi nhỏ hoặc chỉ vì điểm tổng thấp. Chỉ xử lý đúng những đơn vị kiến thức còn yếu và tiếp tục lộ trình.
         """
     )
