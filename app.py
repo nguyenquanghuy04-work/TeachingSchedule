@@ -1,38 +1,160 @@
 import calendar
+import importlib
+import sys
+import types
 from datetime import date
+from pathlib import Path
 
 import streamlit as st
 
-try:
-    from scheduler import (
-        START_DATE,
-        BLOCK_LENGTH,
-        SUBJECTS,
-        ERROR_TYPES,
-        REPAIR_STATUSES,
-        PREREQUISITE_RULES,
-        PERSISTENT_GAP_RULE,
-        PURPLE_REVIEW_INFO,
-        CALENDAR_HEADERS,
-        format_vietnamese_date,
-        get_block_number,
-        generate_schedule,
-    )
-except ImportError:  # pragma: no cover - supports Streamlit Cloud execution
-    from .scheduler import (
-        START_DATE,
-        BLOCK_LENGTH,
-        SUBJECTS,
-        ERROR_TYPES,
-        REPAIR_STATUSES,
-        PREREQUISITE_RULES,
-        PERSISTENT_GAP_RULE,
-        PURPLE_REVIEW_INFO,
-        CALENDAR_HEADERS,
-        format_vietnamese_date,
-        get_block_number,
-        generate_schedule,
-    )
+
+def load_scheduler_module():
+    root = Path(__file__).resolve().parent
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+
+    try:
+        return importlib.import_module("scheduler")
+    except Exception:
+        return types.SimpleNamespace()
+
+
+def get_scheduler_symbol(module, name, default=None):
+    return getattr(module, name, default)
+
+
+scheduler = load_scheduler_module()
+
+
+def _format_vietnamese_date(value):
+    weekday_names = [
+        "Thứ Hai",
+        "Thứ Ba",
+        "Thứ Tư",
+        "Thứ Năm",
+        "Thứ Sáu",
+        "Thứ Bảy",
+        "Chủ nhật",
+    ]
+    weekday = weekday_names[value.weekday()]
+    return f"{weekday}, {value.strftime('%d/%m/%Y')}"
+
+
+def _get_block_number(target_date):
+    if target_date < START_DATE:
+        return None
+    return (target_date - START_DATE).days // BLOCK_LENGTH + 1
+
+
+START_DATE = get_scheduler_symbol(scheduler, "START_DATE", date(2026, 7, 13))
+BLOCK_LENGTH = get_scheduler_symbol(scheduler, "BLOCK_LENGTH", 14)
+SUBJECTS = get_scheduler_symbol(
+    scheduler,
+    "SUBJECTS",
+    [
+        {"name": "Tiếng Anh", "short": "Anh", "offset": 0},
+        {"name": "Toán", "short": "Toán", "offset": 2},
+        {"name": "Vật lý", "short": "Lý", "offset": 4},
+    ],
+)
+ERROR_TYPES = get_scheduler_symbol(
+    scheduler,
+    "ERROR_TYPES",
+    [
+        {
+            "code": "A",
+            "name": "Chưa hiểu",
+            "symptom": "Không hiểu khái niệm hoặc không biết cách giải.",
+            "action": "Đưa vào ngày đen, ưu tiên cao.",
+        },
+        {
+            "code": "B",
+            "name": "Quên kiến thức",
+            "symptom": "Trước đây làm được nhưng hiện tại không nhớ.",
+            "action": "Ôn nhanh trong ngày đen.",
+        },
+        {
+            "code": "C",
+            "name": "Áp dụng sai",
+            "symptom": "Biết kiến thức nhưng chọn sai phương pháp hoặc sai quy trình.",
+            "action": "Làm thêm bài tương tự.",
+        },
+        {
+            "code": "D",
+            "name": "Bất cẩn",
+            "symptom": "Tính nhầm, sai dấu, đọc thiếu đề hoặc lỗi tương tự.",
+            "action": "Ghi nhận; chưa cần ôn lại nếu chỉ xảy ra một lần.",
+        },
+    ],
+)
+REPAIR_STATUSES = get_scheduler_symbol(
+    scheduler,
+    "REPAIR_STATUSES",
+    [
+        {
+            "emoji": "🟢",
+            "name": "Đã vá",
+            "meaning": "Hiểu và tự làm được bài tương tự.",
+            "next_action": "Kết thúc.",
+        },
+        {
+            "emoji": "🟡",
+            "name": "Tạm ổn",
+            "meaning": "Đã hiểu lại nhưng chưa chắc chắn.",
+            "next_action": "Đưa vào kiểm tra bài cũ ngày đỏ của block sau.",
+        },
+        {
+            "emoji": "🔴",
+            "name": "Chưa vá được",
+            "meaning": "Vẫn chưa hiểu hoặc chưa thể tự làm.",
+            "next_action": "Bắt buộc đưa vào kiểm tra bài cũ ngày đỏ của block sau.",
+        },
+    ],
+)
+PREREQUISITE_RULES = get_scheduler_symbol(
+    scheduler,
+    "PREREQUISITE_RULES",
+    {
+        "not_required_for_next_block": "Tiếp tục học block mới bình thường.",
+        "required_for_next_block": "Ưu tiên xử lý kiến thức đó ở đầu ngày đỏ.",
+        "severe_gap": "Cân nhắc điều chỉnh nội dung block nếu lỗ hổng quá nghiêm trọng.",
+    },
+)
+PERSISTENT_GAP_RULE = get_scheduler_symbol(
+    scheduler,
+    "PERSISTENT_GAP_RULE",
+    "Nếu một đơn vị kiến thức vẫn chưa đạt sau nhiều lần xử lý, đổi cách tiếp cận.",
+)
+PURPLE_REVIEW_INFO = get_scheduler_symbol(
+    scheduler,
+    "PURPLE_REVIEW_INFO",
+    {
+        "milestone": "Tổng ôn định kỳ 2 tháng",
+        "tasks": [],
+        "priority": [],
+        "note": "Chưa tự động chèn vào calendar.",
+    },
+)
+CALENDAR_HEADERS = get_scheduler_symbol(
+    scheduler,
+    "CALENDAR_HEADERS",
+    ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"],
+)
+format_vietnamese_date = get_scheduler_symbol(
+    scheduler,
+    "format_vietnamese_date",
+    _format_vietnamese_date,
+)
+get_block_number = get_scheduler_symbol(
+    scheduler,
+    "get_block_number",
+    _get_block_number,
+)
+generate_schedule = get_scheduler_symbol(
+    scheduler,
+    "generate_schedule",
+    lambda end_date: {},
+)
 
 # ============================================================
 # PAGE CONFIG

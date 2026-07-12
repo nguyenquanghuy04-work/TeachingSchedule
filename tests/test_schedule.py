@@ -1,5 +1,6 @@
 from datetime import date
 
+from app import get_scheduler_symbol
 from scheduler import (
     START_DATE,
     BLOCK_LENGTH,
@@ -166,6 +167,10 @@ def test_first_block_red_day_has_no_previous_block_debt():
 
     assert "kiểm tra kiến thức nền nếu cần" in combined_tasks
     assert "block trước" not in combined_tasks
+
+
+def test_get_scheduler_symbol_returns_default_when_missing():
+    assert get_scheduler_symbol(object(), "missing_attr", "fallback") == "fallback"
 
 
 def test_second_block_red_day_can_handle_previous_debt():
