@@ -3,20 +3,36 @@ from datetime import date
 
 import streamlit as st
 
-from scheduler import (
-    START_DATE,
-    BLOCK_LENGTH,
-    SUBJECTS,
-    ERROR_TYPES,
-    REPAIR_STATUSES,
-    PREREQUISITE_RULES,
-    PERSISTENT_GAP_RULE,
-    PURPLE_REVIEW_INFO,
-    CALENDAR_HEADERS,
-    format_vietnamese_date,
-    get_block_number,
-    generate_schedule,
-)
+try:
+    from scheduler import (
+        START_DATE,
+        BLOCK_LENGTH,
+        SUBJECTS,
+        ERROR_TYPES,
+        REPAIR_STATUSES,
+        PREREQUISITE_RULES,
+        PERSISTENT_GAP_RULE,
+        PURPLE_REVIEW_INFO,
+        CALENDAR_HEADERS,
+        format_vietnamese_date,
+        get_block_number,
+        generate_schedule,
+    )
+except ImportError:  # pragma: no cover - supports Streamlit Cloud execution
+    from .scheduler import (
+        START_DATE,
+        BLOCK_LENGTH,
+        SUBJECTS,
+        ERROR_TYPES,
+        REPAIR_STATUSES,
+        PREREQUISITE_RULES,
+        PERSISTENT_GAP_RULE,
+        PURPLE_REVIEW_INFO,
+        CALENDAR_HEADERS,
+        format_vietnamese_date,
+        get_block_number,
+        generate_schedule,
+    )
 
 # ============================================================
 # PAGE CONFIG
