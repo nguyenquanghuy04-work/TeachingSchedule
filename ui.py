@@ -8,6 +8,30 @@ def get_event_label(event):
     return f"{event['emoji']} {event['subject']}"
 
 
+def get_short_subject(subject):
+    mapping = {
+        "Tiếng Anh": "Anh",
+        "Toán": "Toán",
+        "Vật lý": "Lý",
+    }
+    return mapping.get(subject, subject)
+
+
+def build_day_button_label(day_number, events, is_today=False):
+    lines = []
+    if is_today:
+        lines.append(f"✓ • {day_number}")
+    else:
+        lines.append(str(day_number))
+
+    for event in events:
+        emoji = event.get("emoji", "")
+        subject = get_short_subject(event.get("subject", ""))
+        lines.append(f"{emoji} {subject}")
+
+    return "\n".join(lines)
+
+
 def get_event_color_key(event):
     emoji_map = {
         "🔴": "red",
@@ -83,7 +107,12 @@ def inject_dashboard_css():
             border: 1px solid var(--border);
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow);
-            padding: 1.25rem;
+            padding: 0.95rem 1rem;
+            box-sizing: border-box;
+            width: 100%;
+            height: auto;
+            min-height: 0;
+            overflow-wrap: anywhere;
         }
 
         .section-label {
@@ -125,11 +154,13 @@ def inject_dashboard_css():
         }
 
         .stat-card {
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid var(--border);
+            background: #eef0f7;
+            border: 1px solid rgba(23, 32, 51, 0.06);
             border-radius: var(--radius-md);
-            padding: 1rem;
-            min-height: 110px;
+            padding: 0.8rem 0.9rem;
+            min-height: 92px;
+            box-sizing: border-box;
+            overflow-wrap: anywhere;
         }
 
         .stat-label {
@@ -160,36 +191,74 @@ def inject_dashboard_css():
 
         div[data-testid="stButton"] > button {
             width: 100%;
-            min-height: 112px;
-            border-radius: 16px;
-            border: 1px solid rgba(23, 32, 51, 0.1);
-            background: rgba(255, 255, 255, 0.95);
+            min-height: 0;
+            border-radius: 14px;
+            border: 1px solid rgba(23, 32, 51, 0.12);
+            background: #ffffff;
             color: var(--text-main);
             text-align: left;
             align-items: flex-start;
             justify-content: flex-start;
-            padding: 0.7rem 0.65rem;
+            padding: 0.55rem 0.6rem;
             white-space: pre-wrap;
             line-height: 1.25;
+            box-sizing: border-box;
             transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
         }
 
         div[data-testid="stButton"] > button:hover {
-            border-color: var(--accent);
+            border-color: rgba(87, 105, 255, 0.45);
             transform: translateY(-1px);
-            box-shadow: 0 8px 18px rgba(101, 113, 216, 0.12);
+            box-shadow: 0 6px 18px rgba(23, 32, 51, 0.08);
+        }
+
+        div[data-testid="stButton"] > button:active {
+            transform: scale(0.985);
+        }
+
+        .calendar-day-cell {
+            background: #ffffff;
+            color: var(--text-main);
+            border: 1px solid rgba(23, 32, 51, 0.12);
+        }
+
+        .calendar-day-cell.is-today {
+            border-color: #6571d8;
+            box-shadow: 0 0 0 3px rgba(101, 113, 216, 0.12);
+        }
+
+        .calendar-day-cell.is-selected {
+            border-width: 2px;
+            border-color: #6571d8;
+            box-shadow: 0 0 0 3px rgba(101, 113, 216, 0.12);
+        }
+
+        .calendar-day-cell.is-placeholder {
+            background: #f1f3f8;
+            border-style: dashed;
+            color: #7b8498;
+            border-color: rgba(23, 32, 51, 0.09);
+        }
+
+        .calendar-day-cell.is-placeholder:hover {
+            box-shadow: none;
+            transform: none;
         }
 
         .day-chip {
             display: inline-block;
-            margin-top: 0.42rem;
-            padding: 0.22rem 0.42rem;
+            margin-top: 0.32rem;
+            padding: 0.2rem 0.38rem;
             border-radius: 999px;
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 700;
             letter-spacing: 0.02em;
             color: #33415c;
             background: rgba(101, 113, 216, 0.08);
+            width: fit-content;
+            max-width: 100%;
+            white-space: normal;
+            overflow-wrap: anywhere;
         }
 
         .day-chip.red { background: rgba(234, 83, 83, 0.12); color: #b43f3f; }
@@ -209,11 +278,13 @@ def inject_dashboard_css():
         }
 
         .detail-card {
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid var(--border);
-            border-radius: 18px;
-            padding: 1rem;
+            background: #ffffff;
+            border: 1px solid rgba(23, 32, 51, 0.08);
+            border-radius: 16px;
+            padding: 0.85rem 0.95rem;
             margin-bottom: 0.8rem;
+            box-sizing: border-box;
+            overflow-wrap: anywhere;
         }
 
         .detail-title {
@@ -229,15 +300,22 @@ def inject_dashboard_css():
         }
 
         .detail-pill {
-            display: inline-block;
-            padding: 0.28rem 0.6rem;
+            display: inline-flex;
+            align-items: center;
+            width: fit-content;
+            max-width: 100%;
+            min-height: 32px;
+            padding: 0.32rem 0.65rem;
             border-radius: 999px;
             font-size: 0.78rem;
             font-weight: 700;
             margin-right: 0.35rem;
             margin-bottom: 0.35rem;
-            background: rgba(101, 113, 216, 0.1);
-            color: var(--accent);
+            background: #eef0f7;
+            color: #2f3853;
+            box-sizing: border-box;
+            white-space: normal;
+            overflow-wrap: anywhere;
         }
 
         @media (max-width: 1100px) {
@@ -258,8 +336,7 @@ def inject_dashboard_css():
             }
 
             div[data-testid="stButton"] > button {
-                min-height: 98px;
-                padding: 0.6rem 0.5rem;
+                padding: 0.5rem 0.55rem;
             }
         }
 
@@ -269,7 +346,7 @@ def inject_dashboard_css():
             }
 
             div[data-testid="stButton"] > button {
-                min-height: 88px;
+                padding: 0.45rem 0.5rem;
             }
         }
         </style>
@@ -340,22 +417,19 @@ def render_quick_stats(block_number, today_events_count, selected_date, next_mil
 
 
 def render_month_toolbar(previous_month, next_month, go_to_today, go_to_purple_week):
-    left, center, right = st.columns([1, 2, 1])
-
-    with left:
+    top = st.columns([1, 2, 1])
+    with top[0]:
         st.button("◀", on_click=previous_month, use_container_width=True, key="prev_month")
-
-    with center:
+    with top[1]:
         st.markdown('<div class="section-label" style="text-align:center;">Tháng đang xem</div>', unsafe_allow_html=True)
         st.markdown(
-            f"<div style='font-size:1.1rem;font-weight:700;text-align:center;'>Tháng {st.session_state.view_month} · {st.session_state.view_year}</div>",
+            f"<div style='font-size:1.05rem;font-weight:700;text-align:center;'>Tháng {st.session_state.view_month} · {st.session_state.view_year}</div>",
             unsafe_allow_html=True,
         )
-
-    with right:
+    with top[2]:
         st.button("▶", on_click=next_month, use_container_width=True, key="next_month")
 
-    toolbar_cols = st.columns([1, 1, 1, 1.25])
+    toolbar_cols = st.columns([1, 1.25, 1, 1.25])
     with toolbar_cols[0]:
         st.button("Hôm nay", on_click=go_to_today, use_container_width=True)
     with toolbar_cols[1]:
@@ -400,30 +474,19 @@ def render_calendar_grid(year, month, schedule, today, selected_date, select_dat
                     continue
 
                 events = schedule.get(current_date, [])
-                labels = [get_event_label(event) for event in events]
-                day_label = str(current_date.day)
-                chip_html = ""
-                if events:
-                    display_labels = labels[:2]
-                    chip_html = "".join(
-                        f"<div class='day-chip {get_event_color_key(event)}'>{get_event_label(event)}</div>"
-                        for event in events[:2]
-                    )
-                    if len(events) > 2:
-                        chip_html += "<div class='day-chip neutral'>+{} khác</div>".format(len(events) - 2)
+                is_today = current_date == today
+                is_selected = current_date == selected_date
+                button_label = build_day_button_label(current_date.day, events[:2], is_today=is_today)
+                if len(events) > 2:
+                    button_label = f"{button_label}\n+{len(events) - 2} khác"
 
-                prefix = ""
-                if current_date == today:
-                    prefix = "● "
-                if current_date == selected_date:
-                    prefix = "✓ " + prefix
-
-                button_text = f"{prefix}{day_label}"
-                if chip_html:
-                    button_text = f"{button_text}\n{chip_html}"
+                if is_today:
+                    button_label = f"{button_label}\nHôm nay"
+                if is_selected:
+                    button_label = f"{button_label}\nĐang chọn"
 
                 st.button(
-                    button_text,
+                    button_label,
                     key=f"day_{current_date.isoformat()}",
                     on_click=select_date,
                     args=(current_date,),
