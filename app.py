@@ -60,10 +60,7 @@ def _format_vietnamese_date(value):
 
     weekday = weekday_names[value.weekday()]
 
-    return (
-        f"{weekday}, "
-        f"{value.strftime('%d/%m/%Y')}"
-    )
+    return f"{weekday}, {value.strftime('%d/%m/%Y')}"
 
 
 def _get_block_number(target_date):
@@ -239,9 +236,7 @@ PURPLE_REVIEW_INFO = get_scheduler_symbol(
         "milestone": "Tổng ôn định kỳ 2 tháng",
         "tasks": [],
         "priority": [],
-        "note": (
-            "Chưa tự động chèn vào calendar."
-        ),
+        "note": "Chưa tự động chèn vào calendar.",
     },
 )
 
@@ -308,20 +303,47 @@ today = get_current_vietnam_date()
 
 
 if "view_year" not in st.session_state:
-    st.session_state.view_year = (
-        START_DATE.year
-    )
+    st.session_state.view_year = START_DATE.year
 
 
 if "view_month" not in st.session_state:
-    st.session_state.view_month = (
-        START_DATE.month
-    )
+    st.session_state.view_month = START_DATE.month
 
 
 if "selected_date" not in st.session_state:
-    st.session_state.selected_date = (
-        START_DATE
+    st.session_state.selected_date = START_DATE
+
+
+if "month_selector" not in st.session_state:
+    st.session_state.month_selector = (
+        st.session_state.view_month
+    )
+
+
+if "year_selector" not in st.session_state:
+    st.session_state.year_selector = (
+        st.session_state.view_year
+    )
+
+
+# ============================================================
+# NAVIGATION HELPERS
+# ============================================================
+
+def _sync_month_selectors():
+    """
+    Đồng bộ selectbox tháng và năm với tháng lịch đang xem.
+
+    Việc này ngăn selectbox ghi đè ngược lại view_month
+    và view_year sau khi người dùng bấm các nút điều hướng.
+    """
+
+    st.session_state.month_selector = (
+        st.session_state.view_month
+    )
+
+    st.session_state.year_selector = (
+        st.session_state.view_year
     )
 
 
@@ -337,6 +359,8 @@ def previous_month():
     else:
         st.session_state.view_month -= 1
 
+    _sync_month_selectors()
+
 
 def next_month():
     if st.session_state.view_month == 12:
@@ -346,11 +370,15 @@ def next_month():
     else:
         st.session_state.view_month += 1
 
+    _sync_month_selectors()
+
 
 def go_to_today():
     st.session_state.view_year = today.year
     st.session_state.view_month = today.month
     st.session_state.selected_date = today
+
+    _sync_month_selectors()
 
 
 def select_date(target_date):
@@ -376,6 +404,8 @@ def go_to_purple_week():
     st.session_state.selected_date = (
         first_purple_week_start
     )
+
+    _sync_month_selectors()
 
 
 # ============================================================

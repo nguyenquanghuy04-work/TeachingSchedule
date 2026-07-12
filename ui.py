@@ -1,4 +1,5 @@
 import calendar
+import html
 
 import streamlit as st
 
@@ -6,6 +7,11 @@ import streamlit as st
 # ============================================================
 # BASIC HELPERS
 # ============================================================
+
+def escape_text(value):
+    """Escape dynamic text before inserting it into HTML."""
+    return html.escape(str(value))
+
 
 def get_event_label(event):
     return f"{event.get('emoji', '')} {event.get('subject', '')}".strip()
@@ -26,28 +32,21 @@ def build_day_button_label(
     is_today=False,
     is_selected=False,
 ):
-    """
-    Tạo nội dung hiển thị trong ô ngày.
-
-    Quy tắc:
-    - Dòng đầu: số ngày.
-    - Các dòng tiếp theo: emoji + tên môn ngắn.
-    - Ngày đang chọn: thêm ✅ ở cuối ô.
-    - Không hiển thị chữ "Đang chọn".
-    - Không dùng dấu tích ở đầu ngày.
-    """
     lines = [str(day_number)]
 
     for event in events:
         emoji = event.get("emoji", "")
-        subject = get_short_subject(event.get("subject", ""))
+        subject = get_short_subject(
+            event.get("full_subject")
+            or event.get("subject", "")
+        )
         lines.append(f"{emoji} {subject}".strip())
 
     if is_today:
-        lines.append("Hôm nay")
+        lines.append("• Hôm nay")
 
     if is_selected:
-        lines.append("✅")
+        lines[-1] = f"{lines[-1]}  ✅"
 
     return "\n".join(lines)
 
@@ -62,24 +61,26 @@ def get_event_color_key(event):
         "⚫": "black",
         "🟣": "purple",
     }
+    return emoji_map.get(event.get("emoji"), "neutral")
 
-    return emoji_map.get(
-        event.get("emoji"),
-        "neutral",
+
+def _safe_event_subject(event):
+    return (
+        event.get("full_subject")
+        or event.get("subject")
+        or "Môn học"
     )
 
 
-def _safe_value(value):
+def _render_html(content):
     """
-    Chuyển giá trị None, chuỗi rỗng thành dấu '-'.
+    Render one complete HTML fragment in one Streamlit markdown call.
+    This avoids Streamlit displaying HTML tags as literal text.
     """
-    if value is None:
-        return "-"
-
-    if isinstance(value, str) and not value.strip():
-        return "-"
-
-    return value
+    st.markdown(
+        content.strip(),
+        unsafe_allow_html=True,
+    )
 
 
 # ============================================================
@@ -89,866 +90,572 @@ def _safe_value(value):
 def inject_dashboard_css():
     st.markdown(
         """
-        <style>
+<style>
+:root {
+    --bg-page: #f6f7fb;
+    --bg-card: rgba(255, 255, 255, 0.96);
+    --bg-muted: #eef0f7;
 
-        /* ==============================================
-           DESIGN TOKENS
-        ============================================== */
+    --text-main: #172033;
+    --text-soft: #687086;
 
-        :root {
-            --bg-page: #f6f7fb;
-            --bg-card: #ffffff;
-            --bg-soft: #eef0f7;
-            --bg-disabled: #e5e8f0;
+    --border: rgba(23, 32, 51, 0.09);
+    --border-strong: rgba(23, 32, 51, 0.14);
 
-            --text-main: #172033;
-            --text-soft: #687086;
-            --text-disabled: #8a91a3;
+    --accent: #6571d8;
+    --accent-soft: rgba(101, 113, 216, 0.10);
 
-            --border: rgba(23, 32, 51, 0.10);
-            --border-strong: rgba(23, 32, 51, 0.16);
+    --shadow:
+        0 14px 40px rgba(23, 32, 51, 0.07);
 
-            --accent: #6571d8;
-            --accent-soft: rgba(101, 113, 216, 0.12);
+    --radius-lg: 22px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
+}
 
-            --shadow:
-                0 12px 32px rgba(23, 32, 51, 0.07);
 
-            --radius-lg: 22px;
-            --radius-md: 16px;
-            --radius-sm: 12px;
-        }
+/* =========================================================
+   PAGE
+   ========================================================= */
 
+.stApp {
+    background:
+        radial-gradient(
+            circle at top left,
+            rgba(101, 113, 216, 0.11),
+            transparent 30rem
+        ),
+        var(--bg-page);
 
-        /* ==============================================
-           PAGE
-        ============================================== */
+    color: var(--text-main);
+}
 
-        .stApp {
-            background:
-                radial-gradient(
-                    circle at top left,
-                    rgba(101, 113, 216, 0.11),
-                    transparent 30rem
-                ),
-                var(--bg-page);
+.block-container {
+    max-width: 1600px;
+    padding-top: 1.2rem;
+    padding-bottom: 3rem;
+}
 
-            color: var(--text-main);
-        }
 
+/* =========================================================
+   HEADER
+   ========================================================= */
 
-        .block-container {
-            max-width: 1600px;
-            padding-top: 1.2rem;
-            padding-bottom: 3rem;
-        }
+.app-header {
+    margin-bottom: 1rem;
+}
 
+.app-eyebrow {
+    margin-bottom: 0.35rem;
 
-        /* ==============================================
-           APP HEADER
-        ============================================== */
+    color: var(--accent);
 
-        .app-header {
-            margin-bottom: 1rem;
-        }
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
 
+.app-header h1 {
+    margin: 0;
 
-        .app-eyebrow {
-            font-size: 0.76rem;
-            font-weight: 800;
-            letter-spacing: 0.16em;
-            color: var(--accent);
-            margin-bottom: 0.35rem;
-            text-transform: uppercase;
-        }
+    color: var(--text-main);
 
+    font-size: clamp(2rem, 4vw, 3.25rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+}
 
-        .app-header h1 {
-            margin: 0;
+.app-header p {
+    margin: 0.55rem 0 0;
 
-            font-size:
-                clamp(2rem, 4vw, 3.25rem);
+    color: var(--text-soft);
 
-            line-height: 1.05;
-            letter-spacing: -0.04em;
+    font-size: 1rem;
+    line-height: 1.55;
+}
 
-            color: var(--text-main);
-        }
 
+/* =========================================================
+   GENERAL CARDS
+   ========================================================= */
 
-        .app-header p {
-            margin-top: 0.55rem;
-            margin-bottom: 0;
+.glass-card {
+    width: 100%;
+    box-sizing: border-box;
 
-            color: var(--text-soft);
-            font-size: 1rem;
-        }
+    padding: 1rem;
 
+    background: var(--bg-card);
 
-        /* ==============================================
-           GENERIC CARDS
-        ============================================== */
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
 
-        .content-card {
-            width: 100%;
-            box-sizing: border-box;
+    box-shadow: var(--shadow);
 
-            background: var(--bg-card);
+    overflow-wrap: anywhere;
+}
 
-            border:
-                1px solid var(--border);
+.section-label {
+    margin-bottom: 0.45rem;
 
-            border-radius:
-                var(--radius-lg);
+    color: var(--text-soft);
 
-            box-shadow:
-                var(--shadow);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    line-height: 1.35;
+    text-transform: uppercase;
+}
 
-            padding:
-                1rem 1.05rem;
 
-            overflow-wrap: anywhere;
-        }
+/* =========================================================
+   TODAY HERO
+   ========================================================= */
 
+.today-card {
+    margin-bottom: 1rem;
+}
 
-        .section-label {
-            font-size: 0.74rem;
-            font-weight: 800;
+.hero-date {
+    margin-top: 0.25rem;
 
-            letter-spacing: 0.12em;
+    color: var(--text-main);
 
-            text-transform: uppercase;
+    font-size: clamp(1.25rem, 2.4vw, 1.85rem);
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
 
-            color: var(--text-soft);
+    overflow-wrap: anywhere;
+}
 
-            margin-bottom: 0.45rem;
-        }
+.hero-block {
+    display: inline-flex;
+    align-items: center;
 
+    width: fit-content;
+    max-width: 100%;
 
-        /* ==============================================
-           TODAY HERO
-        ============================================== */
+    margin-top: 0.65rem;
+    padding: 0.42rem 0.72rem;
 
-        .today-card {
-            width: 100%;
-            box-sizing: border-box;
+    background: var(--accent-soft);
+    color: var(--accent);
 
-            background: #ffffff;
+    border-radius: 999px;
 
-            border:
-                1px solid var(--border);
+    font-size: 0.88rem;
+    font-weight: 750;
 
-            border-radius:
-                var(--radius-lg);
+    box-sizing: border-box;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
 
-            box-shadow:
-                var(--shadow);
+.hero-list {
+    margin: 0.85rem 0 0;
+    padding-left: 1.35rem;
 
-            padding:
-                1rem 1.1rem;
+    color: var(--text-main);
+}
 
-            margin-bottom:
-                1rem;
-        }
+.hero-list li {
+    margin-bottom: 0.5rem;
+    line-height: 1.55;
+}
 
 
-        .hero-date {
-            font-size:
-                clamp(1.3rem, 2.4vw, 1.85rem);
+/* =========================================================
+   QUICK STATS
+   ========================================================= */
 
-            font-weight: 750;
+.stat-card {
+    width: 100%;
+    min-height: 100px;
+    box-sizing: border-box;
 
-            letter-spacing:
-                -0.025em;
+    padding: 0.9rem 1rem;
 
-            color:
-                var(--text-main);
+    background: var(--bg-muted);
 
-            margin-top:
-                0.25rem;
-        }
+    border: 1px solid rgba(23, 32, 51, 0.06);
+    border-radius: var(--radius-md);
 
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
 
-        .hero-block {
-            display: inline-flex;
-            align-items: center;
+.stat-label {
+    color: var(--text-soft);
 
-            margin-top:
-                0.55rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1.35;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
 
-            padding:
-                0.42rem 0.7rem;
+.stat-value {
+    margin-top: 0.45rem;
 
-            border-radius:
-                999px;
+    color: var(--text-main);
 
-            background:
-                var(--accent-soft);
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    font-weight: 800;
+    line-height: 1.35;
+    letter-spacing: -0.02em;
 
-            color:
-                var(--accent);
+    overflow-wrap: anywhere;
+}
 
-            font-size:
-                0.88rem;
 
-            font-weight:
-                700;
-        }
+/* =========================================================
+   MONTH TITLE
+   ========================================================= */
 
+.month-title-wrapper {
+    width: 100%;
 
-        .hero-list {
-            margin:
-                0.8rem 0 0;
+    padding: 0.25rem 0.4rem;
 
-            padding-left:
-                1.15rem;
+    text-align: center;
+    box-sizing: border-box;
+}
 
-            color:
-                var(--text-main);
-        }
+.month-title-label {
+    margin-bottom: 0.35rem;
 
+    color: var(--text-soft);
 
-        .hero-list li {
-            margin-bottom:
-                0.45rem;
-        }
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
 
+.month-title-value {
+    color: var(--text-main);
 
-        .hero-empty {
-            margin-top:
-                0.8rem;
+    font-size: 1.1rem;
+    font-weight: 800;
+    line-height: 1.35;
 
-            padding:
-                0.75rem 0.85rem;
+    overflow-wrap: anywhere;
+}
 
-            border-radius:
-                var(--radius-md);
 
-            background:
-                var(--bg-soft);
+/* =========================================================
+   STREAMLIT BUTTONS
+   ========================================================= */
 
-            color:
-                var(--text-soft);
-        }
+div[data-testid="stButton"] > button {
+    width: 100%;
 
+    min-height: 46px;
 
-        /* ==============================================
-           QUICK STATS
-        ============================================== */
+    padding: 0.55rem 0.65rem;
 
-        .stat-card {
-            width: 100%;
-            min-height: 100px;
+    background: #ffffff;
+    color: var(--text-main);
 
-            box-sizing: border-box;
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
 
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+    box-sizing: border-box;
 
-            background:
-                var(--bg-soft);
+    text-align: center;
 
-            border:
-                1px solid var(--border);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: normal;
 
-            border-radius:
-                var(--radius-md);
+    line-height: 1.3;
 
-            padding:
-                0.85rem 0.95rem;
+    transition:
+        transform 120ms ease,
+        box-shadow 120ms ease,
+        border-color 120ms ease;
+}
 
-            overflow-wrap:
-                anywhere;
-        }
+div[data-testid="stButton"] > button:hover {
+    border-color: rgba(101, 113, 216, 0.5);
 
+    transform: translateY(-1px);
 
-        .stat-label {
-            color:
-                var(--text-soft);
+    box-shadow:
+        0 6px 18px rgba(23, 32, 51, 0.08);
+}
 
-            font-size:
-                0.72rem;
+div[data-testid="stButton"] > button:active {
+    transform: scale(0.985);
+}
 
-            font-weight:
-                800;
+div[data-testid="stButton"] > button:disabled {
+    background: #e9ecf3;
+    color: #7b8498;
 
-            letter-spacing:
-                0.1em;
+    border-color: rgba(23, 32, 51, 0.07);
 
-            text-transform:
-                uppercase;
-        }
+    opacity: 1;
+}
 
 
-        .stat-value {
-            margin-top:
-                0.42rem;
+/* =========================================================
+   SELECTBOX
+   ========================================================= */
 
-            font-size:
-                1.2rem;
+div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+    background: #ffffff !important;
+    color: var(--text-main) !important;
 
-            font-weight:
-                750;
+    border: 1px solid var(--border-strong) !important;
+    border-radius: 14px !important;
 
-            letter-spacing:
-                -0.02em;
+    min-height: 46px;
+}
 
-            color:
-                var(--text-main);
-        }
 
+/* =========================================================
+   CALENDAR
+   ========================================================= */
 
-        /* ==============================================
-           BUTTONS
-        ============================================== */
+.calendar-header {
+    width: 100%;
+    box-sizing: border-box;
 
-        div[data-testid="stButton"] > button {
-            width: 100%;
+    padding: 0.55rem 0.15rem;
+    margin-bottom: 0.3rem;
 
-            min-height: 44px;
+    background: rgba(128, 128, 128, 0.11);
+    color: var(--text-main);
 
-            box-sizing:
-                border-box;
+    border-radius: 0.7rem;
 
-            border-radius:
-                14px;
+    text-align: center;
 
-            border:
-                1px solid var(--border-strong);
+    font-size: 0.9rem;
+    font-weight: 750;
+    line-height: 1.25;
 
-            background:
-                #ffffff;
+    overflow-wrap: anywhere;
+}
 
-            color:
-                var(--text-main);
+.calendar-placeholder {
+    min-height: 108px;
 
-            white-space:
-                pre-wrap;
+    background: #f0f2f7;
 
-            overflow-wrap:
-                anywhere;
+    border:
+        1px dashed rgba(23, 32, 51, 0.09);
 
-            line-height:
-                1.28;
+    border-radius: 14px;
 
-            transition:
-                transform 120ms ease,
-                box-shadow 120ms ease,
-                border-color 120ms ease,
-                background 120ms ease;
-        }
+    box-sizing: border-box;
+}
 
 
-        div[data-testid="stButton"] > button:hover {
-            background:
-                #ffffff;
+/* Calendar day buttons */
+.calendar-grid-marker
++ div
+div[data-testid="stButton"] > button {
+    min-height: 108px;
 
-            border-color:
-                rgba(101, 113, 216, 0.55);
+    align-items: flex-start;
+    justify-content: flex-start;
 
-            transform:
-                translateY(-1px);
+    padding: 0.55rem 0.5rem;
 
-            box-shadow:
-                0 6px 18px
-                rgba(23, 32, 51, 0.08);
-        }
+    background: #ffffff;
 
+    text-align: left;
 
-        div[data-testid="stButton"] > button:active {
-            transform:
-                scale(0.985);
-        }
+    font-size: 0.86rem;
+    line-height: 1.3;
+}
 
 
-        div[data-testid="stButton"] > button:disabled {
-            background:
-                var(--bg-disabled);
+/* =========================================================
+   DETAIL CARD
+   ========================================================= */
 
-            color:
-                var(--text-disabled);
+.detail-card {
+    width: 100%;
+    box-sizing: border-box;
 
-            border-color:
-                transparent;
+    margin-top: 0.85rem;
+    padding: 0.95rem;
 
-            opacity:
-                1;
-        }
+    background: #ffffff;
 
+    border: 1px solid var(--border);
+    border-radius: 16px;
 
-        /* ==============================================
-           MONTH TOOLBAR
-        ============================================== */
+    overflow-wrap: anywhere;
+}
 
-        .month-title {
-            width: 100%;
+.detail-title {
+    margin-bottom: 0.25rem;
 
-            box-sizing: border-box;
+    color: var(--text-main);
 
-            text-align: center;
+    font-size: 1.03rem;
+    font-weight: 800;
+    line-height: 1.4;
 
-            padding:
-                0.25rem 0.5rem;
-        }
+    overflow-wrap: anywhere;
+}
 
+.detail-meta {
+    margin-bottom: 0.7rem;
 
-        .month-title-value {
-            font-size:
-                1.08rem;
+    color: var(--text-soft);
 
-            font-weight:
-                750;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
 
-            color:
-                var(--text-main);
-        }
+.detail-pill {
+    display: inline-flex;
+    align-items: center;
 
+    width: fit-content;
+    max-width: 100%;
+    min-height: 32px;
 
-        /* Selectbox interaction hierarchy */
+    margin-right: 0.35rem;
+    margin-bottom: 0.4rem;
 
-        div[data-baseweb="select"] > div {
-            background:
-                #ffffff !important;
+    padding: 0.35rem 0.7rem;
 
-            color:
-                var(--text-main) !important;
+    background: #eef0f7;
+    color: #2f3853;
 
-            border:
-                1px solid var(--border-strong) !important;
+    border-radius: 999px;
 
-            border-radius:
-                12px !important;
+    box-sizing: border-box;
 
-            min-height:
-                44px;
-        }
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.35;
 
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
 
-        div[data-baseweb="select"] > div:hover {
-            border-color:
-                rgba(101, 113, 216, 0.55) !important;
-        }
 
+/* =========================================================
+   RESPONSIVE — IPAD / TABLET
+   ========================================================= */
 
-        /* ==============================================
-           CALENDAR
-        ============================================== */
+@media (max-width: 1100px) {
 
-        .calendar-section-title {
-            margin-bottom:
-                0.5rem;
-        }
+    .block-container {
+        padding-left: 0.65rem;
+        padding-right: 0.65rem;
+    }
 
+    .glass-card {
+        padding: 0.9rem;
+    }
 
-        .calendar-header {
-            width: 100%;
-            box-sizing: border-box;
+    .stat-card {
+        min-height: 96px;
+        padding: 0.8rem;
+    }
 
-            text-align: center;
+    .calendar-header {
+        font-size: 0.84rem;
+    }
 
-            font-weight:
-                700;
+    .calendar-grid-marker
+    + div
+    div[data-testid="stButton"] > button {
+        min-height: 100px;
+        padding: 0.48rem 0.42rem;
+        font-size: 0.8rem;
+    }
+}
 
-            padding:
-                0.55rem 0.15rem;
 
-            border-radius:
-                0.7rem;
+/* =========================================================
+   RESPONSIVE — SMALL TABLET
+   ========================================================= */
 
-            background:
-                var(--bg-soft);
+@media (max-width: 820px) {
 
-            color:
-                var(--text-main);
+    .block-container {
+        padding-left: 0.45rem;
+        padding-right: 0.45rem;
+    }
 
-            margin-bottom:
-                0.28rem;
+    .app-header h1 {
+        font-size: 2rem;
+    }
 
-            overflow-wrap:
-                anywhere;
-        }
+    .app-header p {
+        font-size: 0.94rem;
+    }
 
+    .glass-card {
+        border-radius: 18px;
+    }
 
-        .day-empty {
-            min-height:
-                100px;
+    .calendar-header {
+        padding-left: 0.05rem;
+        padding-right: 0.05rem;
 
-            border-radius:
-                14px;
+        font-size: 0.76rem;
+    }
 
-            border:
-                1px dashed
-                rgba(23, 32, 51, 0.08);
+    .calendar-grid-marker
+    + div
+    div[data-testid="stButton"] > button {
+        min-height: 92px;
 
-            background:
-                rgba(238, 240, 247, 0.42);
-        }
+        padding: 0.4rem 0.32rem;
 
+        font-size: 0.75rem;
+        line-height: 1.25;
+    }
+}
 
-        /*
-        Calendar buttons are identified through key-based
-        Streamlit containers when supported by Streamlit.
-        The general button styling remains the fallback.
-        */
 
-        div[data-testid="stButton"] > button p {
-            margin:
-                0;
+/* =========================================================
+   RESPONSIVE — MOBILE
+   ========================================================= */
 
-            white-space:
-                pre-wrap;
+@media (max-width: 600px) {
 
-            overflow-wrap:
-                anywhere;
+    .block-container {
+        padding-left: 0.3rem;
+        padding-right: 0.3rem;
+    }
 
-            word-break:
-                normal;
-        }
+    .app-header h1 {
+        font-size: 1.8rem;
+    }
 
+    .app-header p {
+        font-size: 0.9rem;
+    }
 
-        /* ==============================================
-           DETAILS
-        ============================================== */
+    .calendar-header {
+        font-size: 0.67rem;
+    }
 
-        .details-header {
-            width:
-                100%;
+    .calendar-grid-marker
+    + div
+    div[data-testid="stButton"] > button {
+        min-height: 84px;
 
-            box-sizing:
-                border-box;
+        padding: 0.35rem 0.25rem;
 
-            background:
-                #ffffff;
-
-            border:
-                1px solid var(--border);
-
-            border-radius:
-                var(--radius-lg);
-
-            box-shadow:
-                var(--shadow);
-
-            padding:
-                1rem 1.05rem;
-
-            margin-bottom:
-                0.8rem;
-        }
-
-
-        .detail-card {
-            width:
-                100%;
-
-            box-sizing:
-                border-box;
-
-            background:
-                #ffffff;
-
-            border:
-                1px solid var(--border);
-
-            border-radius:
-                var(--radius-md);
-
-            padding:
-                0.9rem 1rem;
-
-            margin-bottom:
-                0.8rem;
-
-            overflow-wrap:
-                anywhere;
-        }
-
-
-        .detail-title {
-            font-size:
-                1.03rem;
-
-            font-weight:
-                750;
-
-            margin-bottom:
-                0.2rem;
-
-            color:
-                var(--text-main);
-        }
-
-
-        .detail-meta {
-            color:
-                var(--text-soft);
-
-            font-size:
-                0.9rem;
-
-            margin-bottom:
-                0.65rem;
-        }
-
-
-        .detail-pill-row {
-            display:
-                flex;
-
-            flex-wrap:
-                wrap;
-
-            gap:
-                0.4rem;
-
-            margin:
-                0.25rem 0 0.7rem;
-        }
-
-
-        .detail-pill {
-            display:
-                inline-flex;
-
-            align-items:
-                center;
-
-            width:
-                fit-content;
-
-            max-width:
-                100%;
-
-            min-height:
-                32px;
-
-            padding:
-                0.35rem 0.7rem;
-
-            border-radius:
-                999px;
-
-            font-size:
-                0.78rem;
-
-            font-weight:
-                700;
-
-            background:
-                var(--bg-soft);
-
-            color:
-                #2f3853;
-
-            box-sizing:
-                border-box;
-
-            white-space:
-                normal;
-
-            overflow-wrap:
-                anywhere;
-        }
-
-
-        .detail-content {
-            color:
-                var(--text-main);
-
-            line-height:
-                1.6;
-        }
-
-
-        .detail-content ul {
-            margin-top:
-                0.35rem;
-
-            margin-bottom:
-                0.8rem;
-        }
-
-
-        .detail-content li {
-            margin-bottom:
-                0.35rem;
-        }
-
-
-        .empty-detail {
-            width:
-                100%;
-
-            box-sizing:
-                border-box;
-
-            padding:
-                0.85rem;
-
-            border-radius:
-                var(--radius-md);
-
-            background:
-                var(--bg-soft);
-
-            color:
-                var(--text-soft);
-        }
-
-
-        /* ==============================================
-           TABLET / IPAD
-        ============================================== */
-
-        @media (max-width: 1100px) {
-
-            .block-container {
-                padding-left:
-                    0.8rem;
-
-                padding-right:
-                    0.8rem;
-            }
-
-
-            .stat-card {
-                min-height:
-                    96px;
-            }
-
-
-            div[data-testid="stButton"] > button {
-                padding:
-                    0.5rem 0.48rem;
-
-                font-size:
-                    0.92rem;
-            }
-
-
-            .calendar-header {
-                font-size:
-                    0.9rem;
-
-                padding:
-                    0.5rem 0.08rem;
-            }
-
-        }
-
-
-        /* ==============================================
-           SMALL TABLET
-        ============================================== */
-
-        @media (max-width: 820px) {
-
-            .block-container {
-                padding-left:
-                    0.45rem;
-
-                padding-right:
-                    0.45rem;
-            }
-
-
-            .app-header h1 {
-                font-size:
-                    2rem;
-            }
-
-
-            .app-header p {
-                font-size:
-                    0.94rem;
-            }
-
-
-            .calendar-header {
-                font-size:
-                    0.82rem;
-            }
-
-
-            div[data-testid="stButton"] > button {
-                padding:
-                    0.48rem 0.35rem;
-
-                font-size:
-                    0.86rem;
-            }
-
-
-            .day-empty {
-                min-height:
-                    88px;
-            }
-
-        }
-
-
-        /* ==============================================
-           MOBILE
-        ============================================== */
-
-        @media (max-width: 600px) {
-
-            .app-header p {
-                font-size:
-                    0.9rem;
-            }
-
-
-            .today-card,
-            .details-header,
-            .detail-card {
-                padding:
-                    0.8rem;
-            }
-
-
-            .stat-card {
-                min-height:
-                    88px;
-
-                padding:
-                    0.7rem;
-            }
-
-
-            .stat-value {
-                font-size:
-                    1.05rem;
-            }
-
-
-            .calendar-header {
-                font-size:
-                    0.72rem;
-
-                padding:
-                    0.45rem 0.03rem;
-            }
-
-
-            div[data-testid="stButton"] > button {
-                padding:
-                    0.42rem 0.22rem;
-
-                font-size:
-                    0.78rem;
-            }
-
-
-            .day-empty {
-                min-height:
-                    78px;
-            }
-
-        }
-
-        </style>
+        font-size: 0.68rem;
+    }
+}
+</style>
         """,
         unsafe_allow_html=True,
     )
@@ -959,24 +666,17 @@ def inject_dashboard_css():
 # ============================================================
 
 def render_app_header():
-    st.markdown(
+    _render_html(
         """
         <div class="app-header">
-            <div class="app-eyebrow">
-                STUDY CALENDAR
-            </div>
-
-            <h1>
-                Lịch học của L
-            </h1>
-
+            <div class="app-eyebrow">STUDY CALENDAR</div>
+            <h1>Lịch học của L</h1>
             <p>
                 Học đúng nhịp · Nhớ lâu hơn ·
                 Chỉ sửa đúng phần còn yếu
             </p>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
 
@@ -991,76 +691,59 @@ def render_today_hero(
     block_number,
     format_vietnamese_date,
 ):
-    html_parts = [
-        '<div class="today-card">',
+    content_parts = [
+        '<div class="glass-card today-card">',
         '<div class="section-label">Hôm nay</div>',
         (
             '<div class="hero-date">'
-            f'{format_vietnamese_date(today)}'
+            f'{escape_text(format_vietnamese_date(today))}'
             '</div>'
         ),
     ]
 
     if block_number is not None:
-        html_parts.append(
-            (
-                '<div class="hero-block">'
-                f'Block {block_number}'
-                '</div>'
-            )
+        content_parts.append(
+            '<div class="hero-block">'
+            f'Block {escape_text(block_number)}'
+            '</div>'
         )
 
     if today < start_date:
-        html_parts.append(
-            (
-                '<div class="hero-empty">'
-                'Chương trình bắt đầu từ '
-                f'{start_date.strftime("%d/%m/%Y")}.'
-                '</div>'
-            )
+        content_parts.append(
+            '<p class="detail-meta" style="margin-top:0.8rem;">'
+            'Chương trình bắt đầu từ '
+            f'{escape_text(start_date.strftime("%d/%m/%Y"))}.'
+            '</p>'
         )
 
     elif not events:
-        html_parts.append(
-            (
-                '<div class="hero-empty">'
-                'Hôm nay không có nhiệm vụ học tập.'
-                '</div>'
-            )
+        content_parts.append(
+            '<p class="detail-meta" style="margin-top:0.8rem;">'
+            'Hôm nay không có nhiệm vụ học tập.'
+            '</p>'
         )
 
     else:
-        html_parts.append(
-            '<ul class="hero-list">'
-        )
+        content_parts.append('<ul class="hero-list">')
 
         for event in events:
-            emoji = event.get("emoji", "")
-            full_subject = event.get(
-                "full_subject",
-                event.get("subject", ""),
-            )
-            stage = event.get("stage", "")
-            milestone = event.get("milestone", "")
+            emoji = escape_text(event.get("emoji", ""))
+            subject = escape_text(_safe_event_subject(event))
+            stage = escape_text(event.get("stage", "-"))
+            milestone = escape_text(event.get("milestone", "-"))
 
-            html_parts.append(
-                (
-                    '<li>'
-                    f'<strong>{emoji} {full_subject}</strong>'
-                    f' · {stage}'
-                    f' · {milestone}'
-                    '</li>'
-                )
+            content_parts.append(
+                "<li>"
+                f"<strong>{emoji} {subject}</strong>"
+                f" · {stage} · {milestone}"
+                "</li>"
             )
 
-        html_parts.append("</ul>")
+        content_parts.append("</ul>")
 
-    html_parts.append("</div>")
+    content_parts.append("</div>")
 
-    st.markdown(
-        "".join(html_parts),
-        unsafe_allow_html=True,
-    )
+    _render_html("".join(content_parts))
 
 
 # ============================================================
@@ -1072,14 +755,7 @@ def render_quick_stats(
     today_events_count,
     selected_date,
 ):
-    """
-    Chỉ có 3 ô thống kê.
-    Ô 'Mốc tiếp theo' đã được loại bỏ hoàn toàn.
-    """
-
-    cols = st.columns(3)
-
-    stat_data = [
+    stats = [
         (
             "Block hiện tại",
             str(block_number or "—"),
@@ -1094,24 +770,15 @@ def render_quick_stats(
         ),
     ]
 
-    for column, (label, value) in zip(
-        cols,
-        stat_data,
-    ):
-        with column:
-            st.markdown(
-                f"""
-                <div class="stat-card">
-                    <div class="stat-label">
-                        {label}
-                    </div>
+    cols = st.columns(3)
 
-                    <div class="stat-value">
-                        {value}
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
+    for column, (label, value) in zip(cols, stats):
+        with column:
+            _render_html(
+                '<div class="stat-card">'
+                f'<div class="stat-label">{escape_text(label)}</div>'
+                f'<div class="stat-value">{escape_text(value)}</div>'
+                '</div>'
             )
 
 
@@ -1125,10 +792,7 @@ def render_month_toolbar(
     go_to_today,
     go_to_purple_week,
 ):
-    top = st.columns(
-        [1, 2, 1],
-        vertical_alignment="center",
-    )
+    top = st.columns([1, 2.2, 1])
 
     with top[0]:
         st.button(
@@ -1139,21 +803,17 @@ def render_month_toolbar(
         )
 
     with top[1]:
-        st.markdown(
-            f"""
-            <div class="month-title">
-                <div class="section-label">
-                    Tháng đang xem
-                </div>
-
-                <div class="month-title-value">
-                    Tháng {st.session_state.view_month}
-                    ·
-                    {st.session_state.view_year}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        _render_html(
+            '<div class="month-title-wrapper">'
+            '<div class="month-title-label">'
+            'Tháng đang xem'
+            '</div>'
+            '<div class="month-title-value">'
+            f'Tháng {escape_text(st.session_state.view_month)}'
+            ' · '
+            f'{escape_text(st.session_state.view_year)}'
+            '</div>'
+            '</div>'
         )
 
     with top[2]:
@@ -1164,10 +824,7 @@ def render_month_toolbar(
             key="next_month",
         )
 
-    toolbar_cols = st.columns(
-        [1, 1.25, 1, 1.25],
-        vertical_alignment="bottom",
-    )
+    toolbar_cols = st.columns([1, 1.3, 1, 1])
 
     with toolbar_cols[0]:
         st.button(
@@ -1195,40 +852,35 @@ def render_month_toolbar(
         )
 
     with toolbar_cols[3]:
-        current_view_year = (
-            st.session_state.view_year
+        current_view_year = st.session_state.view_year
+
+        start_year = min(
+            2020,
+            current_view_year - 5,
+        )
+
+        end_year = max(
+            2050,
+            current_view_year + 20,
         )
 
         year_options = list(
-            range(
-                current_view_year - 5,
-                current_view_year + 21,
-            )
+            range(start_year, end_year + 1)
         )
 
         selected_year = st.selectbox(
             "Năm",
             options=year_options,
-            index=year_options.index(
-                current_view_year
-            ),
+            index=year_options.index(current_view_year),
             key="year_selector",
         )
 
     if (
-        selected_month
-        != st.session_state.view_month
-        or selected_year
-        != st.session_state.view_year
+        selected_month != st.session_state.view_month
+        or selected_year != st.session_state.view_year
     ):
-        st.session_state.view_month = (
-            selected_month
-        )
-
-        st.session_state.view_year = (
-            selected_year
-        )
-
+        st.session_state.view_month = selected_month
+        st.session_state.view_year = selected_year
         st.rerun()
 
 
@@ -1244,12 +896,11 @@ def render_calendar_grid(
     selected_date,
     select_date,
 ):
-    st.markdown(
-        '<div class="section-label calendar-section-title">'
-        'Lịch tháng'
-        '</div>',
-        unsafe_allow_html=True,
+    _render_html(
+        '<div class="section-label">Lịch tháng</div>'
     )
+
+    header_columns = st.columns(7)
 
     headers = [
         "Thứ 2",
@@ -1261,25 +912,21 @@ def render_calendar_grid(
         "Chủ nhật",
     ]
 
-    header_columns = st.columns(7)
-
     for index, header in enumerate(headers):
         with header_columns[index]:
-            st.markdown(
-                (
-                    '<div class="calendar-header">'
-                    f'{header}'
-                    '</div>'
-                ),
-                unsafe_allow_html=True,
+            _render_html(
+                '<div class="calendar-header">'
+                f'{escape_text(header)}'
+                '</div>'
             )
 
-    cal = calendar.Calendar(firstweekday=0)
-
-    weeks = cal.monthdatescalendar(
-        year,
-        month,
+    # Marker used by CSS to scope calendar button styling.
+    _render_html(
+        '<div class="calendar-grid-marker"></div>'
     )
+
+    cal = calendar.Calendar(firstweekday=0)
+    weeks = cal.monthdatescalendar(year, month)
 
     for week in weeks:
         columns = st.columns(7)
@@ -1288,24 +935,15 @@ def render_calendar_grid(
             with columns[index]:
 
                 if current_date.month != month:
-                    st.markdown(
-                        '<div class="day-empty"></div>',
-                        unsafe_allow_html=True,
+                    _render_html(
+                        '<div class="calendar-placeholder"></div>'
                     )
                     continue
 
-                events = schedule.get(
-                    current_date,
-                    [],
-                )
+                events = schedule.get(current_date, [])
 
-                is_today = (
-                    current_date == today
-                )
-
-                is_selected = (
-                    current_date == selected_date
-                )
+                is_today = current_date == today
+                is_selected = current_date == selected_date
 
                 visible_events = events[:2]
 
@@ -1317,45 +955,16 @@ def render_calendar_grid(
                 )
 
                 if len(events) > 2:
-                    extra_count = len(events) - 2
-
-                    if is_selected:
-                        lines = button_label.split("\n")
-
-                        if lines and lines[-1] == "✅":
-                            lines.insert(
-                                -1,
-                                f"+{extra_count} khác",
-                            )
-                        else:
-                            lines.append(
-                                f"+{extra_count} khác"
-                            )
-
-                        button_label = "\n".join(lines)
-
-                    else:
-                        button_label = (
-                            f"{button_label}\n"
-                            f"+{extra_count} khác"
-                        )
-
-                button_type = (
-                    "primary"
-                    if is_selected
-                    else "secondary"
-                )
+                    button_label += (
+                        f"\n+{len(events) - 2} khác"
+                    )
 
                 st.button(
                     button_label,
-                    key=(
-                        f"day_"
-                        f"{current_date.isoformat()}"
-                    ),
+                    key=f"day_{current_date.isoformat()}",
                     on_click=select_date,
                     args=(current_date,),
                     use_container_width=True,
-                    type=button_type,
                 )
 
 
@@ -1372,210 +981,122 @@ def render_selected_day_details(
     error_types,
     repair_statuses,
 ):
-    header_parts = [
-        '<div class="details-header">',
-        (
-            '<div class="section-label">'
-            'Chi tiết ngày đã chọn'
-            '</div>'
-        ),
-        (
-            '<div class="hero-date">'
-            f'{format_vietnamese_date(selected_date)}'
-            '</div>'
-        ),
-    ]
-
-    if block_number is not None:
-        header_parts.append(
-            (
-                '<div class="hero-block">'
-                f'Block {block_number}'
-                f' · {len(selected_events)} nhiệm vụ'
-                '</div>'
-            )
-        )
-
-    header_parts.append("</div>")
-
-    st.markdown(
-        "".join(header_parts),
-        unsafe_allow_html=True,
+    _render_html(
+        '<div class="section-label">'
+        'Chi tiết ngày đã chọn'
+        '</div>'
+        '<div class="hero-date">'
+        f'{escape_text(format_vietnamese_date(selected_date))}'
+        '</div>'
     )
 
+    if block_number is not None:
+        _render_html(
+            '<div class="hero-block">'
+            f'Block {escape_text(block_number)}'
+            ' · '
+            f'{escape_text(len(selected_events))} nhiệm vụ'
+            '</div>'
+        )
+
     if not selected_events:
-        st.markdown(
-            """
-            <div class="empty-detail">
-                Không có nhiệm vụ học tập
-                trong ngày này.
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.info(
+            "Không có nhiệm vụ học tập trong ngày này."
         )
         return
 
     for event in selected_events:
+        subject = _safe_event_subject(event)
+
+        stage = event.get("stage", "-")
+        milestone = event.get("milestone", "-")
         emoji = event.get("emoji", "")
 
-        full_subject = event.get(
-            "full_subject",
-            event.get("subject", ""),
-        )
-
-        stage = event.get(
-            "stage",
-            "-",
-        )
-
-        milestone = event.get(
-            "milestone",
-            "-",
+        _render_html(
+            '<div class="detail-card">'
+            '<div class="detail-title">'
+            f'{escape_text(emoji)} '
+            f'{escape_text(subject)}'
+            ' · '
+            f'{escape_text(stage)}'
+            '</div>'
+            '<div class="detail-meta">'
+            'Mốc: '
+            f'{escape_text(milestone)}'
+            '</div>'
+            '</div>'
         )
 
         detail_map = {
-            "study_mode": _safe_value(
-                event.get("study_mode")
-            ),
-            "start_time": _safe_value(
-                event.get("start_time")
-            ),
-            "duration": _safe_value(
-                event.get("duration")
-            ),
+            "study_mode": event.get("study_mode", "-"),
+            "start_time": event.get("start_time", "-"),
+            "duration": event.get("duration", "-"),
         }
 
-        if detail_map["study_mode"] == "-":
-            fallback_details = (
-                get_day_type_details(stage)
-            )
+        if (
+            not detail_map["study_mode"]
+            or detail_map["study_mode"] == "-"
+        ):
+            fallback_details = get_day_type_details(stage)
 
-            detail_map = {
-                "study_mode": _safe_value(
-                    fallback_details.get(
-                        "study_mode"
-                    )
-                ),
-                "start_time": _safe_value(
-                    fallback_details.get(
-                        "start_time"
-                    )
-                ),
-                "duration": _safe_value(
-                    fallback_details.get(
-                        "duration"
-                    )
-                ),
-            }
+            if fallback_details:
+                detail_map = {
+                    "study_mode": fallback_details.get(
+                        "study_mode",
+                        "-",
+                    ),
+                    "start_time": fallback_details.get(
+                        "start_time",
+                        "-",
+                    ),
+                    "duration": fallback_details.get(
+                        "duration",
+                        "-",
+                    ),
+                }
 
-        card_parts = [
-            '<div class="detail-card">',
-            (
-                '<div class="detail-title">'
-                f'{emoji} {full_subject}'
-                f' · {stage}'
-                '</div>'
-            ),
-            (
-                '<div class="detail-meta">'
-                f'Mốc: {milestone}'
-                '</div>'
-            ),
-            '<div class="detail-pill-row">',
-            (
+        pills_html = "".join(
+            [
                 '<div class="detail-pill">'
                 'Hình thức học: '
-                f'{detail_map["study_mode"]}'
-                '</div>'
-            ),
-            (
+                f'{escape_text(detail_map["study_mode"])}'
+                '</div>',
+
                 '<div class="detail-pill">'
                 'Giờ bắt đầu: '
-                f'{detail_map["start_time"]}'
-                '</div>'
-            ),
-            (
+                f'{escape_text(detail_map["start_time"])}'
+                '</div>',
+
                 '<div class="detail-pill">'
                 'Thời lượng: '
-                f'{detail_map["duration"]}'
-                '</div>'
-            ),
-            '</div>',
-        ]
-
-        tasks = event.get("tasks", [])
-
-        if tasks:
-            card_parts.append(
-                '<div class="detail-content">'
-            )
-
-            card_parts.append(
-                '<strong>Cần làm:</strong>'
-            )
-
-            card_parts.append("<ul>")
-
-            for task in tasks:
-                card_parts.append(
-                    f"<li>{task}</li>"
-                )
-
-            card_parts.append("</ul>")
-
-            card_parts.append("</div>")
-
-        check_method = _safe_value(
-            event.get("check_method")
+                f'{escape_text(detail_map["duration"])}'
+                '</div>',
+            ]
         )
 
-        goal = _safe_value(
-            event.get("goal")
-        )
+        _render_html(pills_html)
 
-        card_parts.append(
-            (
-                '<div class="detail-content">'
-                '<p>'
-                '<strong>Hình thức kiểm tra:</strong> '
-                f'{check_method}'
-                '</p>'
-                '<p>'
-                '<strong>Mục tiêu:</strong> '
-                f'{goal}'
-                '</p>'
-                '</div>'
-            )
-        )
+        if event.get("tasks"):
+            st.markdown("**Cần làm:**")
 
-        notes = event.get("notes", [])
-
-        if notes:
-            card_parts.append(
-                '<div class="detail-content">'
-            )
-
-            card_parts.append(
-                '<strong>Lưu ý:</strong>'
-            )
-
-            card_parts.append("<ul>")
-
-            for note in notes:
-                card_parts.append(
-                    f"<li>{note}</li>"
-                )
-
-            card_parts.append("</ul>")
-
-            card_parts.append("</div>")
-
-        card_parts.append("</div>")
+            for task in event["tasks"]:
+                st.markdown(f"- {task}")
 
         st.markdown(
-            "".join(card_parts),
-            unsafe_allow_html=True,
+            "**Hình thức kiểm tra:** "
+            f"{event.get('check_method', '-')}"
         )
+
+        st.markdown(
+            "**Mục tiêu:** "
+            f"{event.get('goal', '-')}"
+        )
+
+        if event.get("notes"):
+            st.markdown("**Lưu ý:**")
+
+            for note in event["notes"]:
+                st.markdown(f"- {note}")
 
         if event.get("type") == "test":
             with st.expander(
@@ -1583,24 +1104,18 @@ def render_selected_day_details(
             ):
                 for error in error_types:
                     st.markdown(
-                        (
-                            f"**{error['code']}. "
-                            f"{error['name']}**"
-                        )
+                        f"**{error['code']}. "
+                        f"{error['name']}**"
                     )
 
                     st.markdown(
-                        (
-                            "- Biểu hiện: "
-                            f"{error['symptom']}"
-                        )
+                        f"- Biểu hiện: "
+                        f"{error['symptom']}"
                     )
 
                     st.markdown(
-                        (
-                            "- Xử lý: "
-                            f"{error['action']}"
-                        )
+                        f"- Xử lý: "
+                        f"{error['action']}"
                     )
 
         if event.get("type") == "repair":
@@ -1628,13 +1143,11 @@ def render_selected_day_details(
 
             for status in repair_statuses:
                 st.markdown(
-                    (
-                        f"{status['emoji']} "
-                        f"**{status['name']}** — "
-                        f"{status['meaning']} "
-                        f"**Xử lý tiếp:** "
-                        f"{status['next_action']}"
-                    )
+                    f"{status['emoji']} "
+                    f"**{status['name']}** — "
+                    f"{status['meaning']} "
+                    f"**Xử lý tiếp:** "
+                    f"{status['next_action']}"
                 )
 
 
@@ -1653,64 +1166,43 @@ def render_learning_rule_sections(
         "🧠 Quy tắc xử lý kiến thức tiên quyết"
     ):
         st.markdown(
-            (
-                "**Không liên quan trực tiếp đến "
-                "block tiếp theo:** "
-                f"{prerequisite_rules[
-                    'not_required_for_next_block'
-                ]}"
-            )
+            "**Không liên quan trực tiếp đến block tiếp theo:** "
+            f"{prerequisite_rules['not_required_for_next_block']}"
         )
 
         st.markdown(
-            (
-                "**Là điều kiện tiên quyết bắt buộc:** "
-                f"{prerequisite_rules[
-                    'required_for_next_block'
-                ]}"
-            )
+            "**Là điều kiện tiên quyết bắt buộc:** "
+            f"{prerequisite_rules['required_for_next_block']}"
         )
 
         st.markdown(
-            (
-                "**Lỗ hổng nghiêm trọng:** "
-                f"{prerequisite_rules[
-                    'severe_gap'
-                ]}"
-            )
+            "**Lỗ hổng nghiêm trọng:** "
+            f"{prerequisite_rules['severe_gap']}"
         )
 
     with st.expander(
         "🔁 Quy tắc lỗ hổng dai dẳng"
     ):
-        st.markdown(
-            persistent_gap_rule
-        )
+        st.markdown(persistent_gap_rule)
 
     with st.expander(
         "📖 Chú thích các màu"
     ):
         st.markdown(
             """
-            🔴 **Ngày đỏ — Ngày 0:** Kiểm tra bài cũ
-            hoặc nợ kiến thức và dạy kiến thức mới.
+🔴 **Ngày đỏ — ngày 0:** kiểm tra bài cũ hoặc nợ kiến thức và dạy kiến thức mới.
 
-            🟠 **Ngày cam — Ngày 1:** Tự nhớ, chép lại
-            và kiểm tra kết quả qua ảnh.
+🟠 **Ngày cam — ngày 1:** tự nhớ, chép lại và kiểm tra qua ảnh.
 
-            🟡 **Ngày vàng — Ngày 3:** Đọc lại, làm bài tập,
-            tự giải thích và kiểm tra kết quả qua video.
+🟡 **Ngày vàng — ngày 3:** đọc lại, làm bài tập, tự giải thích và kiểm tra qua video.
 
-            🟢 **Ngày xanh lá — Ngày 7:** Củng cố,
-            làm bài và chữa trực tiếp online.
+🟢 **Ngày xanh lá — ngày 7:** củng cố, làm bài và chữa trực tiếp online.
 
-            🔵 **Ngày xanh dương:** Bài kiểm tra chẩn đoán
-            cuối block.
+🔵 **Ngày xanh dương:** bài kiểm tra chẩn đoán cuối block.
 
-            ⚫ **Ngày đen:** Vá đúng những đơn vị kiến thức
-            cần xử lý.
+⚫ **Ngày đen:** vá đúng đơn vị kiến thức cần xử lý.
 
-            🟣 **Ngày tím:** Tổng ôn định kỳ sau mỗi 4 block.
+🟣 **Ngày tím:** tổng ôn định kỳ sau mỗi 4 block.
             """
         )
 
@@ -1718,13 +1210,8 @@ def render_learning_rule_sections(
         "🟣 Quy tắc ngày tím"
     ):
         st.markdown(
-            (
-                "**Mốc:** "
-                f"{purple_review_info.get(
-                    'milestone',
-                    '-'
-                )}"
-            )
+            f"**Mốc:** "
+            f"{purple_review_info.get('milestone', '-')}"
         )
 
         tasks = purple_review_info.get(
@@ -1733,14 +1220,10 @@ def render_learning_rule_sections(
         )
 
         if tasks:
-            st.markdown(
-                "**Cần làm:**"
-            )
+            st.markdown("**Cần làm:**")
 
             for task in tasks:
-                st.markdown(
-                    f"- {task}"
-                )
+                st.markdown(f"- {task}")
 
         priority = purple_review_info.get(
             "priority",
@@ -1748,21 +1231,12 @@ def render_learning_rule_sections(
         )
 
         if priority:
-            st.markdown(
-                "**Ưu tiên:**"
-            )
+            st.markdown("**Ưu tiên:**")
 
             for item in priority:
-                st.markdown(
-                    f"- {item}"
-                )
+                st.markdown(f"- {item}")
 
         st.markdown(
-            (
-                "**Lưu ý:** "
-                f"{purple_review_info.get(
-                    'note',
-                    '-'
-                )}"
-            )
+            "**Lưu ý:** "
+            f"{purple_review_info.get('note', '-')}"
         )
