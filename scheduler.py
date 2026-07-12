@@ -360,6 +360,52 @@ def add_event(schedule, event_date, event):
     schedule.setdefault(event_date, []).append(event)
 
 
+def get_day_type_details(day_type_name):
+    details_map = {
+        "Ngày đỏ": {
+            "study_mode": "Online",
+            "start_time": "19:45",
+            "duration": "2 giờ 30 phút",
+        },
+        "Ngày cam": {
+            "study_mode": "Tự học, chỉ kiểm tra kết quả qua ảnh",
+            "start_time": "-",
+            "duration": "-",
+        },
+        "Ngày vàng": {
+            "study_mode": "Tự học, chỉ kiểm tra kết quả qua video",
+            "start_time": "-",
+            "duration": "-",
+        },
+        "Ngày xanh lá": {
+            "study_mode": "Online",
+            "start_time": "20:00",
+            "duration": "1 giờ 30 phút",
+        },
+        "Ngày xanh dương": {
+            "study_mode": "Làm bài kiểm tra",
+            "start_time": "-",
+            "duration": "1 giờ 30 phút",
+        },
+        "Ngày đen": {
+            "study_mode": "Online/tùy tình hình thực tế",
+            "start_time": "-",
+            "duration": "-",
+        },
+        "Ngày tím": {
+            "study_mode": "Online",
+            "start_time": "19:45",
+            "duration": "2 giờ 30 phút",
+        },
+    }
+
+    return details_map.get(day_type_name, {
+        "study_mode": "-",
+        "start_time": "-",
+        "duration": "-",
+    })
+
+
 def create_study_event(subject, stage, block_number):
     tasks = (
         stage.get("first_block_tasks", stage["tasks"])
@@ -367,26 +413,7 @@ def create_study_event(subject, stage, block_number):
         else stage["tasks"]
     )
 
-    study_mode = "-"
-    start_time = "-"
-    duration = "-"
-
-    if stage["name"] == "Ngày đỏ":
-        study_mode = "Online"
-        start_time = "19:45"
-        duration = "2 giờ 30 phút"
-    elif stage["name"] == "Ngày cam":
-        study_mode = "Tự học, chỉ kiểm tra kết quả qua ảnh"
-    elif stage["name"] == "Ngày vàng":
-        study_mode = "Tự học, chỉ kiểm tra kết quả qua video"
-    elif stage["name"] == "Ngày xanh lá":
-        study_mode = "Online"
-        start_time = "20:00"
-        duration = "1 giờ 30 phút"
-    elif stage["name"] == "Ngày tím":
-        study_mode = "Online"
-        start_time = "19:45"
-        duration = "2 giờ 30 phút"
+    details = get_day_type_details(stage["name"])
 
     return {
         "type": "study",
@@ -400,13 +427,15 @@ def create_study_event(subject, stage, block_number):
         "goal": stage["goal"],
         "notes": stage.get("notes", []),
         "block": block_number,
-        "study_mode": study_mode,
-        "start_time": start_time,
-        "duration": duration,
+        "study_mode": details["study_mode"],
+        "start_time": details["start_time"],
+        "duration": details["duration"],
     }
 
 
 def create_test_event(subject, block_number):
+    details = get_day_type_details(BLUE_TEST_INFO["name"])
+
     return {
         "type": "test",
         "emoji": BLUE_TEST_INFO["emoji"],
@@ -419,13 +448,15 @@ def create_test_event(subject, block_number):
         "goal": BLUE_TEST_INFO["goal"],
         "notes": BLUE_TEST_INFO["notes"],
         "block": block_number,
-        "study_mode": "Làm bài kiểm tra",
-        "start_time": "-",
-        "duration": "1 giờ 30 phút",
+        "study_mode": details["study_mode"],
+        "start_time": details["start_time"],
+        "duration": details["duration"],
     }
 
 
 def create_repair_event(block_number):
+    details = get_day_type_details(BLACK_REPAIR_INFO["name"])
+
     return {
         "type": "repair",
         "emoji": BLACK_REPAIR_INFO["emoji"],
@@ -439,9 +470,9 @@ def create_repair_event(block_number):
         "notes": BLACK_REPAIR_INFO["notes"],
         "priority_order": BLACK_REPAIR_INFO["priority_order"],
         "block": block_number,
-        "study_mode": "Online/tùy tình hình thực tế",
-        "start_time": "-",
-        "duration": "-",
+        "study_mode": details["study_mode"],
+        "start_time": details["start_time"],
+        "duration": details["duration"],
     }
 
 # ============================================================
@@ -453,8 +484,8 @@ def generate_schedule(end_date):
     """
     Sinh lịch từ START_DATE đến end_date.
 
-    Ngày tím chưa được tự động thêm vì chưa có ngày bắt đầu
-    chu kỳ cụ thể.
+    Sau mỗi 4 block, chèn một tuần tổng ôn màu tím với 3 ngày:
+    Thứ Hai, Thứ Tư, Thứ Sáu của tuần đó.
     """
 
     schedule = {}
@@ -466,6 +497,34 @@ def generate_schedule(end_date):
     block_start = START_DATE
 
     while block_start <= end_date:
+        if block_number > 1 and (block_number - 1) % 4 == 0:
+            purple_week_start = block_start
+
+            purple_dates = [
+                purple_week_start + timedelta(days=0),
+                purple_week_start + timedelta(days=2),
+                purple_week_start + timedelta(days=4),
+            ]
+
+            for index, purple_date in enumerate(purple_dates):
+                if purple_date <= end_date:
+                    subject = SUBJECTS[index]
+                    event = create_study_event(
+                        subject,
+                        {
+                            "name": "Ngày tím",
+                            "emoji": "🟣",
+                            "milestone": PURPLE_REVIEW_INFO["milestone"],
+                            "tasks": PURPLE_REVIEW_INFO["tasks"],
+                            "check_method": "Tự đánh giá năng lực tổng hợp.",
+                            "goal": "Tổng ôn và củng cố kiến thức dài hạn.",
+                            "notes": [PURPLE_REVIEW_INFO["note"]],
+                        },
+                        block_number,
+                    )
+                    add_event(schedule, purple_date, event)
+
+            block_start += timedelta(days=7)
 
         # Chu kỳ Ngày 0 → Ngày 1 → Ngày 3 → Ngày 7
         for subject in SUBJECTS:
