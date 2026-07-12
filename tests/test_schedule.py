@@ -14,6 +14,7 @@ from scheduler import (
     generate_schedule,
     get_block_number,
     get_current_vietnam_date,
+    get_day_type_details,
 )
 
 
@@ -88,6 +89,19 @@ def test_july_2026_schedule():
 def test_block_two_starts_on_july_27():
     assert get_block_number(date(2026, 7, 26)) == 1
     assert get_block_number(date(2026, 7, 27)) == 2
+
+
+def test_purple_week_is_inserted_after_every_four_blocks():
+    schedule = generate_schedule(date(2026, 9, 14))
+
+    assert event_labels(schedule[date(2026, 9, 7)]) == [("🟣", "Anh")]
+    assert event_labels(schedule[date(2026, 9, 9)]) == [("🟣", "Toán")]
+    assert event_labels(schedule[date(2026, 9, 11)]) == [("🟣", "Lý")]
+
+    assert any(
+        event["stage"] == "Ngày tím" and event["subject"] == "Anh"
+        for event in schedule[date(2026, 9, 7)]
+    )
 
 
 def test_future_schedule_december_2027():
@@ -187,6 +201,44 @@ def test_second_block_red_day_can_handle_previous_debt():
     assert "block trước" in combined_tasks
     assert "tạm ổn" in combined_tasks
     assert "chưa vá được" in combined_tasks
+
+
+def test_day_type_details_mapping_matches_requirements():
+    assert get_day_type_details("Ngày đỏ") == {
+        "study_mode": "Online",
+        "start_time": "19:45",
+        "duration": "2 giờ 30 phút",
+    }
+    assert get_day_type_details("Ngày cam") == {
+        "study_mode": "Tự học, chỉ kiểm tra kết quả qua ảnh",
+        "start_time": "-",
+        "duration": "-",
+    }
+    assert get_day_type_details("Ngày vàng") == {
+        "study_mode": "Tự học, chỉ kiểm tra kết quả qua video",
+        "start_time": "-",
+        "duration": "-",
+    }
+    assert get_day_type_details("Ngày xanh lá") == {
+        "study_mode": "Online",
+        "start_time": "20:00",
+        "duration": "1 giờ 30 phút",
+    }
+    assert get_day_type_details("Ngày xanh dương") == {
+        "study_mode": "Làm bài kiểm tra",
+        "start_time": "-",
+        "duration": "1 giờ 30 phút",
+    }
+    assert get_day_type_details("Ngày đen") == {
+        "study_mode": "Online/tùy tình hình thực tế",
+        "start_time": "-",
+        "duration": "-",
+    }
+    assert get_day_type_details("Ngày tím") == {
+        "study_mode": "Online",
+        "start_time": "19:45",
+        "duration": "2 giờ 30 phút",
+    }
 
 
 def test_all_day_types_have_required_study_metadata():
