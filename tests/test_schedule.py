@@ -8,6 +8,9 @@ from scheduler import (
     BLUE_TEST_INFO,
     ERROR_TYPES,
     REPAIR_STATUSES,
+    create_repair_event,
+    create_study_event,
+    create_test_event,
     generate_schedule,
     get_block_number,
     get_current_vietnam_date,
@@ -184,3 +187,58 @@ def test_second_block_red_day_can_handle_previous_debt():
     assert "block trước" in combined_tasks
     assert "tạm ổn" in combined_tasks
     assert "chưa vá được" in combined_tasks
+
+
+def test_all_day_types_have_required_study_metadata():
+    subject = {"short": "Anh", "name": "Tiếng Anh"}
+
+    study_stage_map = {
+        "Ngày đỏ": {
+            "study_mode": "Online",
+            "start_time": "19:45",
+            "duration": "2 giờ 30 phút",
+        },
+        "Ngày cam": {
+            "study_mode": "Tự học, chỉ kiểm tra kết quả qua ảnh",
+            "start_time": "-",
+            "duration": "-",
+        },
+        "Ngày vàng": {
+            "study_mode": "Tự học, chỉ kiểm tra kết quả qua video",
+            "start_time": "-",
+            "duration": "-",
+        },
+        "Ngày xanh lá": {
+            "study_mode": "Online",
+            "start_time": "20:00",
+            "duration": "1 giờ 30 phút",
+        },
+        "Ngày tím": {
+            "study_mode": "Online",
+            "start_time": "19:45",
+            "duration": "2 giờ 30 phút",
+        },
+    }
+
+    for stage_name, expected in study_stage_map.items():
+        stage = {
+            "name": stage_name,
+            "tasks": ["task"],
+            "check_method": "check",
+            "goal": "goal",
+            "notes": [],
+        }
+        event = create_study_event(subject, stage, 1)
+        assert event["study_mode"] == expected["study_mode"]
+        assert event["start_time"] == expected["start_time"]
+        assert event["duration"] == expected["duration"]
+
+    blue_event = create_test_event(subject, 1)
+    assert blue_event["study_mode"] == "Làm bài kiểm tra"
+    assert blue_event["start_time"] == "-"
+    assert blue_event["duration"] == "1 giờ 30 phút"
+
+    black_event = create_repair_event(1)
+    assert black_event["study_mode"] == "Online/tùy tình hình thực tế"
+    assert black_event["start_time"] == "-"
+    assert black_event["duration"] == "-"

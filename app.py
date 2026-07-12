@@ -477,6 +477,16 @@ else:
 
             st.markdown(f"**Mốc:** {event['milestone']}")
 
+            st.markdown(
+                f"**Hình thức học:** {event.get('study_mode', '-')}"
+            )
+            st.markdown(
+                f"**Giờ bắt đầu:** {event.get('start_time', '-')}"
+            )
+            st.markdown(
+                f"**Thời lượng:** {event.get('duration', '-')}"
+            )
+
             st.markdown("**Cần làm:**")
 
             for task in event["tasks"]:

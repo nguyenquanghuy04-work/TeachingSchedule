@@ -367,18 +367,42 @@ def create_study_event(subject, stage, block_number):
         else stage["tasks"]
     )
 
+    study_mode = "-"
+    start_time = "-"
+    duration = "-"
+
+    if stage["name"] == "Ngày đỏ":
+        study_mode = "Online"
+        start_time = "19:45"
+        duration = "2 giờ 30 phút"
+    elif stage["name"] == "Ngày cam":
+        study_mode = "Tự học, chỉ kiểm tra kết quả qua ảnh"
+    elif stage["name"] == "Ngày vàng":
+        study_mode = "Tự học, chỉ kiểm tra kết quả qua video"
+    elif stage["name"] == "Ngày xanh lá":
+        study_mode = "Online"
+        start_time = "20:00"
+        duration = "1 giờ 30 phút"
+    elif stage["name"] == "Ngày tím":
+        study_mode = "Online"
+        start_time = "19:45"
+        duration = "2 giờ 30 phút"
+
     return {
         "type": "study",
-        "emoji": stage["emoji"],
+        "emoji": stage.get("emoji", ""),
         "subject": subject["short"],
         "full_subject": subject["name"],
         "stage": stage["name"],
-        "milestone": stage["milestone"],
+        "milestone": stage.get("milestone", ""),
         "tasks": tasks,
         "check_method": stage["check_method"],
         "goal": stage["goal"],
         "notes": stage.get("notes", []),
         "block": block_number,
+        "study_mode": study_mode,
+        "start_time": start_time,
+        "duration": duration,
     }
 
 
@@ -395,6 +419,9 @@ def create_test_event(subject, block_number):
         "goal": BLUE_TEST_INFO["goal"],
         "notes": BLUE_TEST_INFO["notes"],
         "block": block_number,
+        "study_mode": "Làm bài kiểm tra",
+        "start_time": "-",
+        "duration": "1 giờ 30 phút",
     }
 
 
@@ -412,6 +439,9 @@ def create_repair_event(block_number):
         "notes": BLACK_REPAIR_INFO["notes"],
         "priority_order": BLACK_REPAIR_INFO["priority_order"],
         "block": block_number,
+        "study_mode": "Online/tùy tình hình thực tế",
+        "start_time": "-",
+        "duration": "-",
     }
 
 # ============================================================
