@@ -1,4 +1,5 @@
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 from app import get_scheduler_symbol
 from scheduler import (
@@ -9,6 +10,7 @@ from scheduler import (
     REPAIR_STATUSES,
     generate_schedule,
     get_block_number,
+    get_current_vietnam_date,
 )
 
 

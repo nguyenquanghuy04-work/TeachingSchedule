@@ -3,6 +3,8 @@ import importlib
 import sys
 import types
 from datetime import date
+
+from scheduler import get_current_vietnam_date
 from pathlib import Path
 
 import streamlit as st
@@ -171,7 +173,7 @@ st.set_page_config(
 # SESSION STATE
 # ============================================================
 
-today = date.today()
+today = get_current_vietnam_date()
 
 if "view_year" not in st.session_state:
     st.session_state.view_year = START_DATE.year

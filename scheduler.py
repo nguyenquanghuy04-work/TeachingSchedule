@@ -1,4 +1,5 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 # ============================================================
 # CẤU HÌNH CỐT LÕI
@@ -328,6 +329,10 @@ CALENDAR_HEADERS = [
 def format_vietnamese_date(value):
     weekday = WEEKDAY_NAMES[value.weekday()]
     return f"{weekday}, {value.strftime('%d/%m/%Y')}"
+
+
+def get_current_vietnam_date():
+    return datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date()
 
 
 def get_block_number(target_date):
