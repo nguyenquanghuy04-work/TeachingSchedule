@@ -1,12 +1,15 @@
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+
 # ============================================================
 # CẤU HÌNH CỐT LÕI
 # ============================================================
 
 START_DATE = date(2026, 7, 13)
 BLOCK_LENGTH = 14
+PURPLE_WEEK_LENGTH = 7
+BLOCKS_PER_PURPLE_WEEK = 4
 
 SUBJECTS = [
     {
@@ -25,6 +28,7 @@ SUBJECTS = [
         "offset": 4,
     },
 ]
+
 
 # ============================================================
 # CÁC MỐC HỌC TẬP
@@ -54,8 +58,15 @@ STAGES = [
         ),
         "notes": [
             "Nếu kiểm tra nhanh đạt, đóng lỗi.",
-            "Nếu chưa đạt, giải thích hoặc ôn nhanh rồi kiểm tra lại bằng một bài tương tự.",
-            "Không để phần kiểm tra bài cũ chiếm quá nhiều thời gian và làm gián đoạn tiến độ học mới, trừ trường hợp thiếu kiến thức tiên quyết bắt buộc.",
+            (
+                "Nếu chưa đạt, giải thích hoặc ôn nhanh rồi kiểm tra lại "
+                "bằng một bài tương tự."
+            ),
+            (
+                "Không để phần kiểm tra bài cũ chiếm quá nhiều thời gian "
+                "và làm gián đoạn tiến độ học mới, trừ trường hợp thiếu "
+                "kiến thức tiên quyết bắt buộc."
+            ),
         ],
     },
     {
@@ -115,6 +126,7 @@ STAGES = [
     },
 ]
 
+
 # ============================================================
 # NGÀY XANH DƯƠNG
 # ============================================================
@@ -127,8 +139,14 @@ BLUE_TEST_INFO = {
         "Hoàn thành bài kiểm tra cuối block.",
         "Xác định chính xác L sai đơn vị kiến thức nào.",
         "Xác định nguyên nhân của từng lỗi sai.",
-        "Phân loại lỗi thành: Chưa hiểu, Quên kiến thức, Áp dụng sai hoặc Bất cẩn.",
-        "Xác định đơn vị kiến thức nào thực sự cần được đưa vào ngày đen để xử lý.",
+        (
+            "Phân loại lỗi thành: Chưa hiểu, Quên kiến thức, "
+            "Áp dụng sai hoặc Bất cẩn."
+        ),
+        (
+            "Xác định đơn vị kiến thức nào thực sự cần được đưa "
+            "vào ngày đen để xử lý."
+        ),
     ],
     "check_method": (
         "Bài kiểm tra chẩn đoán theo từng đơn vị kiến thức; "
@@ -141,11 +159,22 @@ BLUE_TEST_INFO = {
     ),
     "notes": [
         "Không reset toàn bộ chương chỉ vì điểm tổng thấp.",
-        "Không có ngưỡng điểm tổng quan trọng để quyết định học lại toàn bộ chương.",
-        "Mỗi câu hỏi nên được liên kết với một hoặc nhiều đơn vị kiến thức.",
-        "Quyết định xử lý phải dựa trên kiến thức cụ thể bị sai, nguyên nhân sai, mức độ quan trọng và vai trò tiên quyết của kiến thức đó.",
+        (
+            "Không có ngưỡng điểm tổng quan trọng để quyết định "
+            "học lại toàn bộ chương."
+        ),
+        (
+            "Mỗi câu hỏi nên được liên kết với một hoặc nhiều "
+            "đơn vị kiến thức."
+        ),
+        (
+            "Quyết định xử lý phải dựa trên kiến thức cụ thể bị sai, "
+            "nguyên nhân sai, mức độ quan trọng và vai trò tiên quyết "
+            "của kiến thức đó."
+        ),
     ],
 }
+
 
 # ============================================================
 # PHÂN LOẠI LỖI SAU KIỂM TRA
@@ -184,6 +213,7 @@ ERROR_TYPES = [
     },
 ]
 
+
 # ============================================================
 # NGÀY ĐEN
 # ============================================================
@@ -214,9 +244,13 @@ BLACK_REPAIR_INFO = {
     "notes": [
         "Không reset toàn bộ chương.",
         "Chỉ xử lý đúng phần kiến thức bị hổng.",
-        "Nếu không đủ thời gian, toàn bộ phần chưa xử lý được chuyển sang phần kiểm tra bài cũ của ngày đỏ block tiếp theo.",
+        (
+            "Nếu không đủ thời gian, toàn bộ phần chưa xử lý được "
+            "chuyển sang phần kiểm tra bài cũ của ngày đỏ block tiếp theo."
+        ),
     ],
 }
+
 
 # ============================================================
 # TRẠNG THÁI SAU NGÀY ĐEN
@@ -245,6 +279,7 @@ REPAIR_STATUSES = [
     },
 ]
 
+
 # ============================================================
 # QUY TẮC KIẾN THỨC TIÊN QUYẾT
 # ============================================================
@@ -264,6 +299,7 @@ PREREQUISITE_RULES = {
     ),
 }
 
+
 # ============================================================
 # LỖ HỔNG DAI DẲNG
 # ============================================================
@@ -273,6 +309,7 @@ PERSISTENT_GAP_RULE = (
     "đánh dấu là lỗ hổng dai dẳng và thay đổi cách giải thích, dạng bài, "
     "ví dụ hoặc phương pháp tiếp cận thay vì tiếp tục lặp lại cùng một cách dạy."
 )
+
 
 # ============================================================
 # NGÀY TÍM
@@ -300,6 +337,7 @@ PURPLE_REVIEW_INFO = {
         "Không dành quá nhiều thời gian cho những phần L đã thành thạo rõ ràng."
     ),
 }
+
 
 # ============================================================
 # DATE HELPERS
@@ -332,29 +370,87 @@ def format_vietnamese_date(value):
 
 
 def get_current_vietnam_date():
-    return datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date()
+    return datetime.now(
+        ZoneInfo("Asia/Ho_Chi_Minh")
+    ).date()
 
 
 def get_block_number(target_date):
+    """
+    Trả về số block của một ngày.
+
+    Nếu ngày nằm trong tuần tím, trả về None vì tuần tím
+    là giai đoạn tổng ôn độc lập giữa hai block.
+    """
+
     if target_date < START_DATE:
         return None
 
-    days_since_start = (target_date - START_DATE).days
-    return days_since_start // BLOCK_LENGTH + 1
+    block_number = 1
+    current_date = START_DATE
+
+    while current_date <= target_date:
+        block_end = (
+            current_date
+            + timedelta(days=BLOCK_LENGTH - 1)
+        )
+
+        if current_date <= target_date <= block_end:
+            return block_number
+
+        current_date += timedelta(days=BLOCK_LENGTH)
+
+        if block_number % BLOCKS_PER_PURPLE_WEEK == 0:
+            purple_week_end = (
+                current_date
+                + timedelta(days=PURPLE_WEEK_LENGTH - 1)
+            )
+
+            if current_date <= target_date <= purple_week_end:
+                return None
+
+            current_date += timedelta(
+                days=PURPLE_WEEK_LENGTH
+            )
+
+        block_number += 1
+
+    return None
 
 
 def get_block_start(block_number):
-    if block_number < 1:
-        raise ValueError("block_number phải lớn hơn hoặc bằng 1.")
+    """
+    Trả về ngày bắt đầu thực tế của block,
+    có tính cả các tuần tím đã được chèn trước đó.
+    """
 
-    return START_DATE + timedelta(
-        days=(block_number - 1) * BLOCK_LENGTH
+    if block_number < 1:
+        raise ValueError(
+            "block_number phải lớn hơn hoặc bằng 1."
+        )
+
+    completed_purple_weeks = (
+        (block_number - 1)
+        // BLOCKS_PER_PURPLE_WEEK
     )
+
+    return (
+        START_DATE
+        + timedelta(
+            days=(block_number - 1) * BLOCK_LENGTH
+        )
+        + timedelta(
+            days=(
+                completed_purple_weeks
+                * PURPLE_WEEK_LENGTH
+            )
+        )
+    )
+
 
 # ============================================================
 # EVENT FACTORIES
 # ============================================================
-
 
 def add_event(schedule, event_date, event):
     schedule.setdefault(event_date, []).append(event)
@@ -368,12 +464,16 @@ def get_day_type_details(day_type_name):
             "duration": "2 giờ 30 phút",
         },
         "Ngày cam": {
-            "study_mode": "Tự học, chỉ kiểm tra kết quả qua ảnh",
+            "study_mode": (
+                "Tự học, chỉ kiểm tra kết quả qua ảnh"
+            ),
             "start_time": "-",
             "duration": "-",
         },
         "Ngày vàng": {
-            "study_mode": "Tự học, chỉ kiểm tra kết quả qua video",
+            "study_mode": (
+                "Tự học, chỉ kiểm tra kết quả qua video"
+            ),
             "start_time": "-",
             "duration": "-",
         },
@@ -388,7 +488,9 @@ def get_day_type_details(day_type_name):
             "duration": "1 giờ 30 phút",
         },
         "Ngày đen": {
-            "study_mode": "Online/tùy tình hình thực tế",
+            "study_mode": (
+                "Online/tùy tình hình thực tế"
+            ),
             "start_time": "-",
             "duration": "-",
         },
@@ -399,21 +501,33 @@ def get_day_type_details(day_type_name):
         },
     }
 
-    return details_map.get(day_type_name, {
-        "study_mode": "-",
-        "start_time": "-",
-        "duration": "-",
-    })
+    return details_map.get(
+        day_type_name,
+        {
+            "study_mode": "-",
+            "start_time": "-",
+            "duration": "-",
+        },
+    )
 
 
-def create_study_event(subject, stage, block_number):
+def create_study_event(
+    subject,
+    stage,
+    block_number,
+):
     tasks = (
-        stage.get("first_block_tasks", stage["tasks"])
+        stage.get(
+            "first_block_tasks",
+            stage["tasks"],
+        )
         if block_number == 1
         else stage["tasks"]
     )
 
-    details = get_day_type_details(stage["name"])
+    details = get_day_type_details(
+        stage["name"]
+    )
 
     return {
         "type": "study",
@@ -433,8 +547,13 @@ def create_study_event(subject, stage, block_number):
     }
 
 
-def create_test_event(subject, block_number):
-    details = get_day_type_details(BLUE_TEST_INFO["name"])
+def create_test_event(
+    subject,
+    block_number,
+):
+    details = get_day_type_details(
+        BLUE_TEST_INFO["name"]
+    )
 
     return {
         "type": "test",
@@ -455,7 +574,9 @@ def create_test_event(subject, block_number):
 
 
 def create_repair_event(block_number):
-    details = get_day_type_details(BLACK_REPAIR_INFO["name"])
+    details = get_day_type_details(
+        BLACK_REPAIR_INFO["name"]
+    )
 
     return {
         "type": "repair",
@@ -465,27 +586,80 @@ def create_repair_event(block_number):
         "stage": BLACK_REPAIR_INFO["name"],
         "milestone": BLACK_REPAIR_INFO["milestone"],
         "tasks": BLACK_REPAIR_INFO["tasks"],
-        "check_method": BLACK_REPAIR_INFO["check_method"],
+        "check_method": BLACK_REPAIR_INFO[
+            "check_method"
+        ],
         "goal": BLACK_REPAIR_INFO["goal"],
         "notes": BLACK_REPAIR_INFO["notes"],
-        "priority_order": BLACK_REPAIR_INFO["priority_order"],
+        "priority_order": BLACK_REPAIR_INFO[
+            "priority_order"
+        ],
         "block": block_number,
         "study_mode": details["study_mode"],
         "start_time": details["start_time"],
         "duration": details["duration"],
     }
 
+
+def create_purple_event(
+    subject,
+    completed_block,
+):
+    """
+    Tạo một sự kiện tổng ôn ngày tím.
+    """
+
+    details = get_day_type_details(
+        PURPLE_REVIEW_INFO["name"]
+    )
+
+    return {
+        "type": "purple_review",
+        "emoji": PURPLE_REVIEW_INFO["emoji"],
+        "subject": subject["short"],
+        "full_subject": subject["name"],
+        "stage": PURPLE_REVIEW_INFO["name"],
+        "milestone": PURPLE_REVIEW_INFO[
+            "milestone"
+        ],
+        "tasks": PURPLE_REVIEW_INFO["tasks"],
+        "check_method": (
+            "Đánh giá trực tiếp khả năng nhớ dài hạn, "
+            "liên kết kiến thức và vận dụng tổng hợp."
+        ),
+        "goal": (
+            "Tổng ôn kiến thức dài hạn, phát hiện phần "
+            "đã quên và xử lý các lỗ hổng còn tồn tại."
+        ),
+        "notes": [
+            PURPLE_REVIEW_INFO["note"]
+        ],
+        "priority_order": PURPLE_REVIEW_INFO[
+            "priority"
+        ],
+        "block": completed_block,
+        "study_mode": details["study_mode"],
+        "start_time": details["start_time"],
+        "duration": details["duration"],
+    }
+
+
 # ============================================================
 # SCHEDULE GENERATION
 # ============================================================
-
 
 def generate_schedule(end_date):
     """
     Sinh lịch từ START_DATE đến end_date.
 
-    Sau mỗi 4 block, chèn một tuần tổng ôn màu tím với 3 ngày:
-    Thứ Hai, Thứ Tư, Thứ Sáu của tuần đó.
+    Quy tắc:
+    - Mỗi block học kéo dài 14 ngày.
+    - Sau mỗi 4 block hoàn thành, chèn 1 tuần tổng ôn màu tím.
+    - Tuần tím có 3 buổi:
+        + Thứ Hai: Tiếng Anh
+        + Thứ Tư: Toán
+        + Thứ Sáu: Vật lý
+    - Sau tuần tím mới bắt đầu block tiếp theo.
     """
 
     schedule = {}
@@ -494,44 +668,26 @@ def generate_schedule(end_date):
         return schedule
 
     block_number = 1
-    block_start = START_DATE
+    current_date = START_DATE
 
-    while block_start <= end_date:
-        if block_number > 1 and (block_number - 1) % 4 == 0:
-            purple_week_start = block_start
+    while current_date <= end_date:
+        block_start = current_date
 
-            purple_dates = [
-                purple_week_start + timedelta(days=0),
-                purple_week_start + timedelta(days=2),
-                purple_week_start + timedelta(days=4),
-            ]
+        # ====================================================
+        # NGÀY ĐỎ → CAM → VÀNG → XANH LÁ
+        # ====================================================
 
-            for index, purple_date in enumerate(purple_dates):
-                if purple_date <= end_date:
-                    subject = SUBJECTS[index]
-                    event = create_study_event(
-                        subject,
-                        {
-                            "name": "Ngày tím",
-                            "emoji": "🟣",
-                            "milestone": PURPLE_REVIEW_INFO["milestone"],
-                            "tasks": PURPLE_REVIEW_INFO["tasks"],
-                            "check_method": "Tự đánh giá năng lực tổng hợp.",
-                            "goal": "Tổng ôn và củng cố kiến thức dài hạn.",
-                            "notes": [PURPLE_REVIEW_INFO["note"]],
-                        },
-                        block_number,
-                    )
-                    add_event(schedule, purple_date, event)
-
-            block_start += timedelta(days=7)
-
-        # Chu kỳ Ngày 0 → Ngày 1 → Ngày 3 → Ngày 7
         for subject in SUBJECTS:
-            red_day = block_start + timedelta(days=subject["offset"])
+            red_day = (
+                block_start
+                + timedelta(days=subject["offset"])
+            )
 
             for stage in STAGES:
-                event_date = red_day + timedelta(days=stage["offset"])
+                event_date = (
+                    red_day
+                    + timedelta(days=stage["offset"])
+                )
 
                 if event_date <= end_date:
                     add_event(
@@ -544,19 +700,36 @@ def generate_schedule(end_date):
                         ),
                     )
 
-        # Thứ Bảy tuần 2: kiểm tra hai môn đầu tiên
-        saturday_week_2 = block_start + timedelta(days=12)
+        # ====================================================
+        # THỨ BẢY TUẦN 2
+        # KIỂM TRA XANH DƯƠNG: TIẾNG ANH + TOÁN
+        # ====================================================
+
+        saturday_week_2 = (
+            block_start
+            + timedelta(days=12)
+        )
 
         if saturday_week_2 <= end_date:
             for subject in SUBJECTS[:2]:
                 add_event(
                     schedule,
                     saturday_week_2,
-                    create_test_event(subject, block_number),
+                    create_test_event(
+                        subject,
+                        block_number,
+                    ),
                 )
 
-        # Chủ nhật tuần 2: kiểm tra môn còn lại + ngày đen
-        sunday_week_2 = block_start + timedelta(days=13)
+        # ====================================================
+        # CHỦ NHẬT TUẦN 2
+        # XANH DƯƠNG VẬT LÝ + NGÀY ĐEN
+        # ====================================================
+
+        sunday_week_2 = (
+            block_start
+            + timedelta(days=13)
+        )
 
         if sunday_week_2 <= end_date:
             add_event(
@@ -571,10 +744,69 @@ def generate_schedule(end_date):
             add_event(
                 schedule,
                 sunday_week_2,
-                create_repair_event(block_number),
+                create_repair_event(
+                    block_number,
+                ),
             )
 
-        block_start += timedelta(days=BLOCK_LENGTH)
+        # ====================================================
+        # KẾT THÚC BLOCK HIỆN TẠI
+        # ====================================================
+
+        completed_block = block_number
+
+        current_date += timedelta(
+            days=BLOCK_LENGTH
+        )
+
         block_number += 1
+
+        # ====================================================
+        # SAU MỖI 4 BLOCK → CHÈN TUẦN TÍM
+        # ====================================================
+
+        if (
+            completed_block
+            % BLOCKS_PER_PURPLE_WEEK
+            == 0
+        ):
+            purple_week_start = current_date
+
+            purple_schedule = [
+                (
+                    purple_week_start,
+                    SUBJECTS[0],
+                ),
+                (
+                    purple_week_start
+                    + timedelta(days=2),
+                    SUBJECTS[1],
+                ),
+                (
+                    purple_week_start
+                    + timedelta(days=4),
+                    SUBJECTS[2],
+                ),
+            ]
+
+            for (
+                purple_date,
+                subject,
+            ) in purple_schedule:
+                if purple_date <= end_date:
+                    add_event(
+                        schedule,
+                        purple_date,
+                        create_purple_event(
+                            subject,
+                            completed_block,
+                        ),
+                    )
+
+            # Block tiếp theo chỉ bắt đầu
+            # sau khi tuần tím 7 ngày kết thúc.
+            current_date += timedelta(
+                days=PURPLE_WEEK_LENGTH
+            )
 
     return schedule
